@@ -8,6 +8,16 @@ class AppLocalizations {
 
   static const _localizedValues = <String, Map<String, String>>{
     'en': {
+      'nav_home_title': 'Home',
+      'hello_priya': 'Hello, Priya',
+      'village_label': 'Village',
+      'district_label': 'District',
+      'outbreak_stage_label': 'Outbreak Stage',
+      'geo_risk_map': 'Geo Risk Map',
+      'risk_level_low': 'Risk Level: Low',
+      'recent_reports': 'Recent Reports',
+      'synced': 'Synced',
+      'not_synced': 'Not Synced',
       'title_welcome': 'Welcome back',
       'subtitle_login': 'Login to your account to continue',
       'hint_phone': 'Phone Number',
@@ -23,6 +33,16 @@ class AppLocalizations {
     },
     // Nepali (basic placeholders)
     'ne': {
+      'nav_home_title': 'होम',
+      'hello_priya': 'प्रिय, नमस्ते',
+      'village_label': 'गाउँ',
+      'district_label': 'जिल्ला',
+      'outbreak_stage_label': 'आउटब्रेक चरण',
+      'geo_risk_map': 'भौगोलिक जोखिम नक्सा',
+      'risk_level_low': 'जोखिम स्तर: कम',
+      'recent_reports': 'भर्खरका प्रतिवेदनहरू',
+      'synced': 'समक्रमित',
+      'not_synced': 'असमक्रमित',
       'title_welcome': 'फेरि स्वागत छ',
       'subtitle_login': 'आफ्नो खाता मा लगइन गर्नुहोस्',
       'hint_phone': 'फोन नम्बर',
@@ -38,6 +58,16 @@ class AppLocalizations {
     },
     // Assamese (basic placeholders)
     'as': {
+      'nav_home_title': 'ঘৰ',
+      'hello_priya': 'প্ৰিয়া, নমস্কাৰ',
+      'village_label': 'গাঁও',
+      'district_label': 'জিলা',
+      'outbreak_stage_label': 'আউটব্ৰেক স্তৰ',
+      'geo_risk_map': 'ভৌগোলিক বিপদ মানচিত্ৰ',
+      'risk_level_low': 'ঝুঁকিৰ স্তৰ: কম',
+      'recent_reports': 'শেহতীয়া প্ৰতিবেদনসমূহ',
+      'synced': 'ছিংক্ড',
+      'not_synced': 'নছিংকড',
       'title_welcome': 'ফেৰাই আহ্বান',
       'subtitle_login': 'আগবাঢ়িবলৈ আপোনাৰ একাউন্টত লগিন কৰক',
       'hint_phone': 'ফোন নম্বৰ',
@@ -53,6 +83,16 @@ class AppLocalizations {
     },
     // Hindi
     'hi': {
+      'nav_home_title': 'होम',
+      'hello_priya': 'हैलो, प्रिया',
+      'village_label': 'गांव',
+      'district_label': 'जिला',
+      'outbreak_stage_label': 'प्रकोप चरण',
+      'geo_risk_map': 'भू जोखिम मानचित्र',
+      'risk_level_low': 'जोखिम स्तर: कम',
+      'recent_reports': 'हाल की रिपोर्ट्स',
+      'synced': 'सिंक्ड',
+      'not_synced': 'नॉट सिंक्ड',
       'title_welcome': 'वापस स्वागत है',
       'subtitle_login': 'जारी रखने के लिए अपने खाते में लॉगिन करें',
       'hint_phone': 'फोन नंबर',

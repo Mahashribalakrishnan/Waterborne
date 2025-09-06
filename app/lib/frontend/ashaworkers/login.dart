@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app/l10n/app_localizations.dart';
+import 'package:app/frontend/ashaworkers/home.dart';
+import 'package:app/frontend/ashaworkers/signup.dart';
 import 'package:app/locale/locale_controller.dart';
 
 const Color primaryBlue = Color(0xFF1E88E5);
@@ -44,7 +46,20 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
       });
 
       // Navigate to home page on successful login
-      // Navigator.pushReplacementNamed(context, '/asha/home');
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const AshaWorkerHomePage(),
+        ),
+      );
+    } else {
+      // Show a quick hint if validation failed
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a 10-digit phone number and an 8-character password.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -57,6 +72,7 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
           child: Form(
             key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -266,7 +282,15 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: _isLoading ? null : () {},
+                      onTap: _isLoading
+                          ? null
+                          : () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const AshaWorkerSignUpPage(),
+                                ),
+                              );
+                            },
                       child: Text(
                         AppLocalizations.of(context).t('sign_up'),
                         style: const TextStyle(
