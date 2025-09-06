@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/locale/locale_controller.dart';
+import 'package:app/frontend/ashaworkers/reports.dart';
 
 const Color primaryBlue = Color(0xFF1E88E5);
 
@@ -80,12 +81,12 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
               runSpacing: 4,
               children: [
                 Text(
-                  '${AppLocalizations.of(context).t('village_label')}: Rampur',
+                  '${AppLocalizations.of(context).t('village_label')}: ${AppLocalizations.of(context).t('village_rampur')}',
                   style: const TextStyle(fontSize: 13, color: primaryBlue),
                 ),
                 const _Separator(),
                 Text(
-                  '${AppLocalizations.of(context).t('district_label')}: Jaipur',
+                  '${AppLocalizations.of(context).t('district_label')}: ${AppLocalizations.of(context).t('district_jaipur')}',
                   style: const TextStyle(fontSize: 13, color: primaryBlue),
                 ),
                 const _Separator(),
@@ -157,20 +158,20 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
             // Report items (static to match the screenshot exactly)
             _ReportRow(
               dateTime: '06 Sep 2025, 09:15 AM',
-              subText: '12 reports collected',
+              subText: '12 ' + AppLocalizations.of(context).t('reports_collected_suffix'),
               synced: true,
             ),
             const SizedBox(height: 14),
             _ReportRow(
               dateTime: '05 Sep 2025, 11:30 AM',
-              subText: '8 reports collected',
+              subText: '8 ' + AppLocalizations.of(context).t('reports_collected_suffix'),
               synced: true,
             ),
             const SizedBox(height: 14),
             // Third row without dot, and a Submit button aligned to the right (as in screenshot section bottom)
             _ReportRow(
               dateTime: '04 Sep 2025, 02:45 PM',
-              subText: '5 reports collected',
+              subText: '5 ' + AppLocalizations.of(context).t('reports_collected_suffix'),
               synced: false,
             ),
             const SizedBox(height: 12),
@@ -188,7 +189,16 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (i) => setState(() => _currentIndex = i),
+          onTap: (i) {
+            setState(() => _currentIndex = i);
+            if (i == 2) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AshaWorkerReportsPage(),
+                ),
+              );
+            }
+          },
           type: BottomNavigationBarType.fixed,
           selectedItemColor: primaryBlue,
           unselectedItemColor: const Color(0xFF9CA3AF),
