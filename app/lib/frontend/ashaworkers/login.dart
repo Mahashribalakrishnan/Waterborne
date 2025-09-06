@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:app/l10n/app_localizations.dart';
+import 'package:app/locale/locale_controller.dart';
 
 const Color primaryBlue = Color(0xFF1E88E5);
 
@@ -57,20 +60,38 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top-right small icon (placeholder, optional)
+                // Top-right language selector
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
-                  children: const [
-                    Icon(Icons.public, size: 20, color: Colors.black54),
+                  children: [
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.public, size: 20, color: Colors.black54),
+                      onSelected: (code) {
+                        switch (code) {
+                          case 'ne':
+                          case 'en':
+                          case 'as':
+                          case 'hi':
+                            LocaleController.instance.setLocale(Locale(code));
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'ne', child: Text('Nepali')),
+                        PopupMenuItem(value: 'en', child: Text('English')),
+                        PopupMenuItem(value: 'as', child: Text('Assamese')),
+                        PopupMenuItem(value: 'hi', child: Text('Hindi')),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 // Headline
-                const Center(
+                Center(
                   child: Text(
-                    'Welcome back',
+                    AppLocalizations.of(context).t('title_welcome'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
                       color: Colors.black87,
@@ -78,11 +99,11 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Center(
+                Center(
                   child: Text(
-                    'Login to your account to continue',
+                    AppLocalizations.of(context).t('subtitle_login'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
                       color: Color(0xFF6B7280),
@@ -94,9 +115,13 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
                   style: const TextStyle(fontSize: 16),
                   decoration: InputDecoration(
-                    hintText: 'Phone  Number',
+                    hintText: AppLocalizations.of(context).t('hint_phone'),
                     hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
                     filled: true,
                     fillColor: const Color(0xFFF1F5F9),
@@ -117,10 +142,10 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your phone number';
+                      return AppLocalizations.of(context).t('phone_empty');
                     }
                     if (!_isValidPhone(value)) {
-                      return 'Please enter a valid 10-digit phone number';
+                      return AppLocalizations.of(context).t('phone_invalid');
                     }
                     return null;
                   },
@@ -130,13 +155,27 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(8),
+                  ],
                   style: const TextStyle(fontSize: 16),
                   decoration: InputDecoration(
-                    hintText: 'Password',
+                    hintText: AppLocalizations.of(context).t('hint_password'),
                     hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
                     filled: true,
                     fillColor: const Color(0xFFF1F5F9),
-                    suffixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF9CA3AF)),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF9CA3AF)),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: const Color(0xFF9CA3AF),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -153,10 +192,10 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
+                      return AppLocalizations.of(context).t('password_empty');
                     }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
+                    if (value.length != 8) {
+                      return AppLocalizations.of(context).t('password_length_exact');
                     }
                     return null;
                   },
@@ -172,9 +211,9 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                       minimumSize: const Size(0, 0),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text(
-                      'Forgot Password?',
-                      style: TextStyle(
+                    child: Text(
+                      AppLocalizations.of(context).t('forgot_password'),
+                      style: const TextStyle(
                         fontSize: 14,
                         color: Colors.black87,
                       ),
@@ -204,9 +243,9 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text(
-                            'Login',
-                            style: TextStyle(
+                        : Text(
+                            AppLocalizations.of(context).t('login'),
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
@@ -219,18 +258,18 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      "Don't have an account? ",
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(context).t('no_account'),
+                      style: const TextStyle(
                         fontSize: 14,
                         color: Color(0xFF6B7280),
                       ),
                     ),
                     GestureDetector(
                       onTap: _isLoading ? null : () {},
-                      child: const Text(
-                        'Sign Up',
-                        style: TextStyle(
+                      child: Text(
+                        AppLocalizations.of(context).t('sign_up'),
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: primaryBlue,
