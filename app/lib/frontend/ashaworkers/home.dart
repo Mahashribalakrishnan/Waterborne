@@ -54,16 +54,6 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
               PopupMenuItem(value: 'hi', child: Text('Hindi')),
             ],
           ),
-          // Profile quick action
-          IconButton(
-            icon: const Icon(Icons.person_outline_rounded, color: Colors.black87),
-            tooltip: 'Profile',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AshaWorkerProfilePage()),
-              );
-            },
-          ),
           const Padding(
             padding: EdgeInsets.only(right: 16),
             child: Icon(Icons.notifications_none, color: Colors.black87),

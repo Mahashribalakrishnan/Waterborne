@@ -3,6 +3,7 @@ import 'package:app/l10n/app_localizations.dart';
 import 'package:app/locale/locale_controller.dart';
 import 'package:app/frontend/ashaworkers/home.dart';
 import 'package:app/frontend/ashaworkers/reports.dart';
+import 'package:app/frontend/ashaworkers/data_collection.dart';
 
 const Color _primaryBlue = Color(0xFF1E88E5);
 
@@ -215,6 +216,12 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
                 MaterialPageRoute(builder: (_) => const AshaWorkerHomePage()),
                 (route) => false,
               );
+            } else if (i == 1) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AshaWorkerDataCollectionPage(),
+                ),
+              );
             } else if (i == 2) {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AshaWorkerReportsPage()),
@@ -225,22 +232,22 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
           selectedItemColor: _primaryBlue,
           unselectedItemColor: const Color(0xFF9CA3AF),
           showUnselectedLabels: true,
-          items: const [
+          items: [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded),
-              label: 'Home',
+              icon: const Icon(Icons.home_rounded),
+              label: t('nav_home_title'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.fact_check_outlined),
-              label: 'Data Collection',
+              icon: const Icon(Icons.fact_check_outlined),
+              label: t('nav_data_collection'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long_outlined),
-              label: 'Reports',
+              icon: const Icon(Icons.receipt_long_outlined),
+              label: t('nav_reports'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              label: 'Profile',
+              icon: const Icon(Icons.person_outline_rounded),
+              label: t('nav_profile'),
             ),
           ],
         ),

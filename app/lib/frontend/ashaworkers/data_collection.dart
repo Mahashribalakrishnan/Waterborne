@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:app/locale/locale_controller.dart';
+import 'package:app/l10n/app_localizations.dart';
 import 'package:app/frontend/ashaworkers/home.dart';
 import 'package:app/frontend/ashaworkers/reports.dart';
 import 'package:app/frontend/ashaworkers/profile.dart';
@@ -62,24 +63,23 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Attach image via URL', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              Text(AppLocalizations.of(context).t('dc_attach_image_via_url'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
                 decoration: const InputDecoration(
-                  labelText: 'Image URL',
                   border: OutlineInputBorder(),
-                ),
+                ).copyWith(labelText: AppLocalizations.of(context).t('dc_image_url')),
               ),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                  TextButton(onPressed: () => Navigator.pop(ctx), child: Text(AppLocalizations.of(context).t('cancel'))),
                   const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-                    child: const Text('Attach'),
+                    child: Text(AppLocalizations.of(context).t('attach')),
                   ),
                 ],
               ),
@@ -92,7 +92,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
     if (!mounted) return;
     if (result != null && result.isNotEmpty) {
       setState(() => _imageUrl = result);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image attached')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).t('dc_image_attached'))));
     }
   }
 
@@ -110,6 +110,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context).t;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -121,9 +122,9 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
-          'Household & Health Data Collection',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700),
+        title: Text(
+          t('dc_title'),
+          style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w700),
         ),
         actions: [
           // Language selector (follows the app-wide locale)
@@ -155,12 +156,12 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
           // Segmented header
           Row(
             children: [
-              _PillButton(text: 'Scan QR', onTap: () {}),
+              _PillButton(text: t('dc_scan_qr'), onTap: () {}),
               const SizedBox(width: 8),
-              _PillButton(text: 'Voice bot', onTap: () {}),
+              _PillButton(text: t('dc_voice_bot'), onTap: () {}),
               const SizedBox(width: 8),
               _PillButton(
-                text: 'Fill Manually',
+                text: t('dc_fill_manually'),
                 filled: true,
                 onTap: () {},
               ),
@@ -169,18 +170,18 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
           const SizedBox(height: 16),
 
           // Household Details
-          const _SectionHeader('Household Details'),
-          _TextField(label: 'Household Door No', hint: 'Enter  door number', controller: _doorNo),
-          _TextField(label: 'Head of Household Name', hint: 'Enter  name', controller: _headName),
-          _TextField(label: 'Phone Number', hint: 'Enter  phone number', controller: _phone, keyboardType: TextInputType.phone),
-          _TextField(label: 'Address', hint: 'Enter  address', controller: _address),
-          _TextField(label: 'Village', hint: 'Enter  village', controller: _village),
-          _TextField(label: 'District', hint: 'Enter  district', controller: _district),
+          _SectionHeader(t('dc_household_details')),
+          _TextField(label: t('dc_household_door_no'), hint: t('dc_enter_door_number'), controller: _doorNo),
+          _TextField(label: t('dc_head_name'), hint: t('dc_enter_name'), controller: _headName),
+          _TextField(label: t('dc_phone_number'), hint: t('dc_enter_phone_number'), controller: _phone, keyboardType: TextInputType.phone),
+          _TextField(label: t('dc_address'), hint: t('dc_enter_address'), controller: _address),
+          _TextField(label: t('dc_village'), hint: t('dc_enter_village'), controller: _village),
+          _TextField(label: t('dc_district'), hint: t('dc_enter_district'), controller: _district),
 
           const SizedBox(height: 12),
 
           // Family Members
-          const _SectionHeader('Family Members'),
+          _SectionHeader(t('dc_family_members')),
           ..._members.asMap().entries.map((e) => _FamilyMemberTile(index: e.key + 1, title: e.value['title']!, summary: e.value['summary']!)),
           const SizedBox(height: 8),
           SizedBox(
@@ -189,39 +190,40 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
               onPressed: () {
                 setState(() {
                   _members.add({
-                    'title': 'Family Member ${_members.length + 1}',
+                    'title': 'Member ${_members.length + 1}',
                     'summary': 'Name: , Gender: , Age: , Symptoms: , Notes: ',
                   });
                 });
               },
               icon: const Icon(Icons.add),
-              label: const Text('Add Member'),
+              label: Text(t('dc_add_member')),
             ),
           ),
 
           const SizedBox(height: 12),
 
           // Additional Info
-          const _SectionHeader('Additional Info'),
+          _SectionHeader(t('dc_additional_info')),
           // Drinking water source
           InputDecorator(
-            decoration: _decoration('Drinking water source'),
+            decoration: _decoration(t('dc_drinking_water_source')),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _waterSource,
                 isExpanded: true,
-                hint: const Text('Select  source'),
-                items: const [
-                  DropdownMenuItem(value: 'Tap', child: Text('Tap')),
-                  DropdownMenuItem(value: 'Well', child: Text('Well')),
-                  DropdownMenuItem(value: 'Hand Pump', child: Text('Hand Pump')),
-                  DropdownMenuItem(value: 'Borewell', child: Text('Borewell')),
-                  DropdownMenuItem(value: 'River/Pond', child: Text('River/Pond')),
+                hint: Text(t('dc_select_source')),
+                items: [
+                  DropdownMenuItem(value: 'Tap', child: Text(t('dc_source_tap'))),
+                  DropdownMenuItem(value: 'Well', child: Text(t('dc_source_well'))),
+                  DropdownMenuItem(value: 'Hand Pump', child: Text(t('dc_source_hand_pump'))),
+                  DropdownMenuItem(value: 'Borewell', child: Text(t('dc_source_borewell'))),
+                  DropdownMenuItem(value: 'River/Pond', child: Text(t('dc_source_river_pond'))),
                 ],
                 onChanged: (v) => setState(() => _waterSource = v),
               ),
             ),
           ),
+
           const SizedBox(height: 12),
 
           // Attach image (URL based) + preview
@@ -235,7 +237,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Attach image', style: TextStyle(fontWeight: FontWeight.w600)),
+                Text(t('dc_attach_image'), style: const TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -258,7 +260,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: _promptImageUrl,
-                      child: const Text('Upload'),
+                      child: Text(t('dc_upload')),
                     ),
                   ],
                 ),
@@ -272,7 +274,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Visited hospital/PHC recently'),
+              Text(t('dc_visited_hospital_recently')),
               Switch(
                 value: _visitedHospital,
                 onChanged: (v) => setState(() => _visitedHospital = v),
@@ -281,7 +283,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
           ),
 
           const SizedBox(height: 8),
-          _MultilineField(label: 'Notes', hint: 'Enter  notes', controller: _notes),
+          _MultilineField(label: t('dc_notes'), hint: t('dc_enter_notes'), controller: _notes),
 
           const SizedBox(height: 14),
 
@@ -291,9 +293,9 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
               Expanded(
                 child: OutlinedButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Draft saved locally')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('dc_draft_saved'))));
                   },
-                  child: const Text('Save Draft'),
+                  child: Text(t('dc_save_draft')),
                 ),
               ),
               const SizedBox(width: 12),
@@ -301,9 +303,9 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: _primaryBlue),
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Form submitted')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('dc_form_submitted'))));
                   },
-                  child: const Text('Submit'),
+                  child: Text(t('dc_submit')),
                 ),
               ),
             ],
@@ -341,22 +343,22 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
           selectedItemColor: _primaryBlue,
           unselectedItemColor: const Color(0xFF9CA3AF),
           showUnselectedLabels: true,
-          items: const [
+          items: [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded),
-              label: 'Home',
+              icon: const Icon(Icons.home_rounded),
+              label: t('nav_home_title'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.fact_check_outlined),
-              label: 'Data Collection',
+              icon: const Icon(Icons.fact_check_outlined),
+              label: t('nav_data_collection'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long_outlined),
-              label: 'Reports',
+              icon: const Icon(Icons.receipt_long_outlined),
+              label: t('nav_reports'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              label: 'Profile',
+              icon: const Icon(Icons.person_outline_rounded),
+              label: t('nav_profile'),
             ),
           ],
         ),
