@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/locale/locale_controller.dart';
 import 'package:app/frontend/ashaworkers/reports.dart';
+import 'package:app/frontend/ashaworkers/profile.dart';
+import 'package:app/frontend/ashaworkers/data_collection.dart';
 
 const Color primaryBlue = Color(0xFF1E88E5);
 
@@ -51,6 +53,16 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
               PopupMenuItem(value: 'as', child: Text('Assamese')),
               PopupMenuItem(value: 'hi', child: Text('Hindi')),
             ],
+          ),
+          // Profile quick action
+          IconButton(
+            icon: const Icon(Icons.person_outline_rounded, color: Colors.black87),
+            tooltip: 'Profile',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AshaWorkerProfilePage()),
+              );
+            },
           ),
           const Padding(
             padding: EdgeInsets.only(right: 16),
@@ -191,10 +203,22 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
           currentIndex: _currentIndex,
           onTap: (i) {
             setState(() => _currentIndex = i);
-            if (i == 2) {
+            if (i == 1) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AshaWorkerDataCollectionPage(),
+                ),
+              );
+            } else if (i == 2) {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => const AshaWorkerReportsPage(),
+                ),
+              );
+            } else if (i == 3) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AshaWorkerProfilePage(),
                 ),
               );
             }
