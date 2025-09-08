@@ -99,37 +99,48 @@ class _ReportList extends StatelessWidget {
       itemBuilder: (context, index) {
         final it = items[index];
         final caseWord = it.cases == 1 ? t('case') : t('cases');
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Left text block
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${it.disease} & ${it.cases} $caseWord',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF6B7280),
-                    ),
+        return Card(
+          elevation: 0.5,
+          shadowColor: Colors.black12,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Left text block
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${it.disease} • ${it.cases} $caseWord',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${it.surname} ${t('family')}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${it.surname} ${t('family')}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 12),
+                // Right synced pill
+                _SyncedPill(text: t('synced')),
+              ],
             ),
-            const SizedBox(width: 12),
-            // Right synced pill
-            _SyncedPill(text: t('synced')),
-          ],
+          ),
         );
       },
     );
