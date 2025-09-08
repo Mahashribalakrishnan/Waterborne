@@ -26,6 +26,17 @@ class MyApp extends StatelessWidget {
     return AnimatedBuilder(
       animation: LocaleController.instance,
       builder: (context, _) {
+        const primaryMint = Color(0xFF00D09E);
+        const primaryMintDark = Color(0xFF00B18A);
+        const softMint = Color(0xFFEAFBF6);
+
+        final colorScheme = ColorScheme.fromSeed(
+          seedColor: primaryMint,
+          primary: primaryMint,
+          secondary: primaryMintDark,
+          brightness: Brightness.light,
+        );
+
         return MaterialApp(
           title: 'Waterborne - ASHA Worker',
           locale: LocaleController.instance.locale,
@@ -41,6 +52,66 @@ class MyApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: colorScheme,
+            scaffoldBackgroundColor: softMint,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: primaryMint,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              centerTitle: true,
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: softMint,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: primaryMint),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryMint,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                elevation: 0,
+              ),
+            ),
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: primaryMint,
+                side: const BorderSide(color: primaryMint),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              ),
+            ),
+            bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+              backgroundColor: Colors.white,
+              selectedItemColor: primaryMint,
+              unselectedItemColor: Color(0xFF9CA3AF),
+              type: BottomNavigationBarType.fixed,
+              elevation: 0,
+              showUnselectedLabels: true,
+            ),
+            chipTheme: ChipThemeData(
+              backgroundColor: softMint,
+              selectedColor: primaryMint,
+              labelStyle: const TextStyle(color: Colors.black87),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: primaryMint)),
+            ),
+            dividerColor: const Color(0xFFE5E7EB),
+          ),
           home: const AshaWorkerLoginPage(),
         );
       },

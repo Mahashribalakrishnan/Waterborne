@@ -5,8 +5,6 @@ import 'package:app/frontend/ashaworkers/home.dart';
 import 'package:app/frontend/ashaworkers/reports.dart';
 import 'package:app/frontend/ashaworkers/data_collection.dart';
 
-const Color _primaryBlue = Color(0xFF1E88E5);
-
 class AshaWorkerProfilePage extends StatefulWidget {
   const AshaWorkerProfilePage({super.key});
 
@@ -21,24 +19,21 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context).t;
 
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         elevation: 0,
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         title: Text(
           t('profile_title'),
           style: const TextStyle(
-            color: Colors.black87,
             fontWeight: FontWeight.w600,
           ),
         ),
         actions: const [
           Padding(
             padding: EdgeInsets.only(right: 16),
-            child: Icon(Icons.settings_outlined, color: Colors.black87),
+            child: Icon(Icons.settings_outlined),
           ),
         ],
       ),
@@ -50,7 +45,7 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
           Center(
             child: CircleAvatar(
               radius: 44,
-              backgroundColor: const Color(0xFFEDE9E3),
+              backgroundColor: cs.surfaceVariant,
               backgroundImage: const NetworkImage(
                 'https://images.unsplash.com/photo-1550525811-e5869dd03032?q=80&w=200&auto=format&fit=crop',
               ),
@@ -68,15 +63,14 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${t('worker_id_prefix')} 123456',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF6B7280),
+                    color: cs.outline,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -87,9 +81,9 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
                     '${t('linked_phc_prefix')} Rural Health Center',
                     style: const TextStyle(
                       fontSize: 13,
-                      color: _primaryBlue,
+                      color: Colors.blue, // will be overridden by theme primary via DefaultTextStyle if needed
                       decoration: TextDecoration.underline,
-                      decorationColor: _primaryBlue,
+                      decorationColor: Colors.blue,
                     ),
                   ),
                 ),
@@ -106,12 +100,11 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
               child: ExpansionTile(
                 tilePadding: const EdgeInsets.symmetric(horizontal: 12),
                 childrenPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                leading: const Icon(Icons.public, color: Colors.black87),
+                leading: const Icon(Icons.public),
                 title: Text(
                   t('change_language'),
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
                   ),
                 ),
                 children: const [
@@ -131,7 +124,6 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
               ),
             ),
           ),
@@ -145,17 +137,17 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
             titleKey: 'worker_id_label',
             value: '123456',
           ),
-          const _InfoTile(
+          _InfoTile(
             icon: Icons.phone_outlined,
             titleKey: 'contact_number_label',
             value: '+91 9876543210',
-            valueColor: _primaryBlue,
+            valueColor: cs.primary,
           ),
-          const _InfoTile(
+          _InfoTile(
             icon: Icons.local_hospital_outlined,
             titleKey: 'linked_phc_label',
             value: 'Rural Health Center',
-            valueColor: _primaryBlue,
+            valueColor: cs.primary,
           ),
 
           const SizedBox(height: 10),
@@ -168,7 +160,6 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
               ),
             ),
           ),
@@ -185,7 +176,6 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
               ),
             ),
           ),
@@ -194,7 +184,7 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
           _ActionTile(
             icon: Icons.logout,
             label: t('logout'),
-            trailing: const Icon(Icons.arrow_right_alt, color: Colors.black87),
+            trailing: const Icon(Icons.arrow_right_alt),
             onTap: () {},
           ),
           const SizedBox(height: 24),
@@ -204,7 +194,6 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
       // Bottom Navigation
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
           border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
         ),
         child: BottomNavigationBar(
@@ -229,7 +218,7 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
             }
           },
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: _primaryBlue,
+          selectedItemColor: cs.primary,
           unselectedItemColor: const Color(0xFF9CA3AF),
           showUnselectedLabels: true,
           items: [

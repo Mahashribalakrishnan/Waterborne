@@ -1,33 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:app/l10n/app_localizations.dart';
 
-const Color primaryBlue = Color(0xFF1E88E5);
-
 class AshaWorkerReportsPage extends StatelessWidget {
   const AshaWorkerReportsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context).t;
+    final cs = Theme.of(context).colorScheme;
 
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: Colors.white,
         appBar: AppBar(
           elevation: 0,
           centerTitle: true,
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
             onPressed: () => Navigator.of(context).pop(),
-            color: Colors.black87,
           ),
           title: Text(
             t('my_reports'),
             style: const TextStyle(
-              color: Colors.black87,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -37,9 +31,9 @@ class AshaWorkerReportsPage extends StatelessWidget {
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TabBar(
-                labelColor: primaryBlue,
+                labelColor: cs.primary,
                 unselectedLabelColor: const Color(0xFF9CA3AF),
-                indicatorColor: primaryBlue,
+                indicatorColor: cs.primary,
                 labelStyle: const TextStyle(fontWeight: FontWeight.w600),
                 tabs: [
                   Tab(text: t('tab_today')),
@@ -68,6 +62,7 @@ class _ReportList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     // Demo static items to match screenshot
     final items = [
       _Item(
@@ -137,7 +132,7 @@ class _ReportList extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 // Right synced pill
-                _SyncedPill(text: t('synced')),
+                _SyncedPill(text: t('synced'), color: cs.primary),
               ],
             ),
           ),
@@ -149,7 +144,8 @@ class _ReportList extends StatelessWidget {
 
 class _SyncedPill extends StatelessWidget {
   final String text;
-  const _SyncedPill({required this.text});
+  final Color color;
+  const _SyncedPill({required this.text, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +162,7 @@ class _SyncedPill extends StatelessWidget {
             width: 18,
             height: 18,
             decoration: BoxDecoration(
-              color: const Color(0xFF22C55E), // green
+              color: color,
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Icon(

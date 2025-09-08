@@ -6,8 +6,6 @@ import 'package:app/frontend/ashaworkers/signup.dart';
 import 'package:app/locale/locale_controller.dart';
 import 'package:app/services/asha_auth_service.dart';
 
-const Color primaryBlue = Color(0xFF1E88E5);
-
 class AshaWorkerLoginPage extends StatefulWidget {
   const AshaWorkerLoginPage({Key? key}) : super(key: key);
 
@@ -99,8 +97,8 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
@@ -173,21 +171,7 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                   decoration: InputDecoration(
                     hintText: AppLocalizations.of(context).t('hint_phone'),
                     hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
-                    filled: true,
-                    fillColor: const Color(0xFFF1F5F9),
                     suffixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF9CA3AF)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.transparent, width: 0),
-                    ),
                     contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
                   ),
                   validator: (value) {
@@ -212,8 +196,6 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                   decoration: InputDecoration(
                     hintText: AppLocalizations.of(context).t('hint_password'),
                     hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
-                    filled: true,
-                    fillColor: const Color(0xFFF1F5F9),
                     prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF9CA3AF)),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -225,18 +207,6 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                           _obscurePassword = !_obscurePassword;
                         });
                       },
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.transparent, width: 0),
                     ),
                     contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
                   ),
@@ -278,11 +248,9 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _login,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryBlue,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      elevation: 0,
                     ),
                     child: _isLoading
                         ? const SizedBox(
@@ -330,7 +298,7 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: primaryBlue,
+                          color: Colors.white, // Will be wrapped by a TextButton if needed
                         ),
                       ),
                     ),

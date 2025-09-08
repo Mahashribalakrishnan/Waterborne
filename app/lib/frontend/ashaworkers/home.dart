@@ -5,8 +5,6 @@ import 'package:app/frontend/ashaworkers/reports.dart';
 import 'package:app/frontend/ashaworkers/profile.dart';
 import 'package:app/frontend/ashaworkers/data_collection.dart';
 
-const Color primaryBlue = Color(0xFF1E88E5);
-
 class AshaWorkerHomePage extends StatefulWidget {
   final String? userName;
   const AshaWorkerHomePage({Key? key, this.userName}) : super(key: key);
@@ -20,24 +18,21 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         elevation: 0,
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         title: Text(
           AppLocalizations.of(context).t('nav_home_title'),
           style: const TextStyle(
-            color: Colors.black87,
             fontWeight: FontWeight.w600,
           ),
         ),
         actions: [
           // Globe language selector
           PopupMenuButton<String>(
-            icon: const Icon(Icons.public, color: Colors.black87),
+            icon: const Icon(Icons.public),
             onSelected: (code) {
               switch (code) {
                 case 'ne':
@@ -57,7 +52,7 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
           ),
           const Padding(
             padding: EdgeInsets.only(right: 16),
-            child: Icon(Icons.notifications_none, color: Colors.black87),
+            child: Icon(Icons.notifications_none),
           ),
         ],
       ),
@@ -75,7 +70,6 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
               ),
             ),
             const SizedBox(height: 12),
@@ -87,17 +81,17 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
               children: [
                 Text(
                   '${AppLocalizations.of(context).t('village_label')}: ${AppLocalizations.of(context).t('village_rampur')}',
-                  style: const TextStyle(fontSize: 13, color: primaryBlue),
+                  style: TextStyle(fontSize: 13, color: cs.primary),
                 ),
                 const _Separator(),
                 Text(
                   '${AppLocalizations.of(context).t('district_label')}: ${AppLocalizations.of(context).t('district_jaipur')}',
-                  style: const TextStyle(fontSize: 13, color: primaryBlue),
+                  style: TextStyle(fontSize: 13, color: cs.primary),
                 ),
                 const _Separator(),
                 Text(
                   '${AppLocalizations.of(context).t('outbreak_stage_label')}: Monitoring',
-                  style: const TextStyle(fontSize: 13, color: primaryBlue),
+                  style: TextStyle(fontSize: 13, color: cs.primary),
                 ),
               ],
             ),
@@ -110,7 +104,6 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
               ),
             ),
             const SizedBox(height: 12),
@@ -126,7 +119,7 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stack) {
                     return Container(
-                      color: const Color(0xFFE6F0FA),
+                      color: cs.background,
                       alignment: Alignment.center,
                       child: const Icon(Icons.map_outlined, color: Color(0xFF9CA3AF), size: 48),
                     );
@@ -139,9 +132,9 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
             Center(
               child: Text(
                 AppLocalizations.of(context).t('risk_level_low'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: primaryBlue,
+                  color: cs.primary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -155,7 +148,6 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
               ),
             ),
             const SizedBox(height: 12),
@@ -189,7 +181,6 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
       // Bottom Navigation
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
           border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
         ),
         child: BottomNavigationBar(
@@ -217,26 +208,14 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
             }
           },
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: primaryBlue,
+          selectedItemColor: cs.primary,
           unselectedItemColor: const Color(0xFF9CA3AF),
           showUnselectedLabels: true,
           items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.fact_check_outlined),
-              label: 'Data Collection',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long_outlined),
-              label: 'Reports',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              label: 'Profile',
-            ),
+            BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: 'Data Collection'),
+            BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Reports'),
+            BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Profile'),
           ],
         ),
       ),
@@ -250,14 +229,15 @@ class _LinkPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Text(
       text,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13,
-        color: primaryBlue,
+        color: cs.primary,
         decoration: TextDecoration.underline,
-        decorationColor: primaryBlue,
+        decorationColor: cs.primary,
       ),
     );
   }
@@ -292,6 +272,7 @@ class _ReportRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final label = synced
         ? AppLocalizations.of(context).t('synced')
         : AppLocalizations.of(context).t('not_synced');
@@ -316,9 +297,9 @@ class _ReportRow extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 subText,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: primaryBlue,
+                  color: cs.primary,
                   fontWeight: FontWeight.w500,
                 ),
               ),

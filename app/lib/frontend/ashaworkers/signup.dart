@@ -4,9 +4,6 @@ import 'package:app/locale/locale_controller.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/services/asha_auth_service.dart';
 
-// Use the same primary color as login page without importing it to avoid circular deps
-const Color primaryBlue = Color(0xFF1E88E5);
-
 class AshaWorkerSignUpPage extends StatefulWidget {
   const AshaWorkerSignUpPage({super.key});
 
@@ -182,23 +179,10 @@ class _AshaWorkerSignUpPageState extends State<AshaWorkerSignUpPage> {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
-      filled: true,
-      fillColor: const Color(0xFFF1F5F9),
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.transparent, width: 0),
-      ),
       contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+      // Borders/fill/colors will inherit from ThemeData.inputDecorationTheme
     );
   }
 
@@ -257,17 +241,11 @@ class _AshaWorkerSignUpPageState extends State<AshaWorkerSignUpPage> {
     final villages = _selectedDistrict != null ? (_villagesByDistrict[_selectedDistrict!] ?? []) : <String>[];
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         title: Text(
           AppLocalizations.of(context).t('title_signup'),
-          style: const TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         centerTitle: true,
       ),
@@ -485,11 +463,9 @@ class _AshaWorkerSignUpPageState extends State<AshaWorkerSignUpPage> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryBlue,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      elevation: 0,
                     ),
                     child: _isLoading
                         ? const SizedBox(
