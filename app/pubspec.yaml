@@ -37,6 +37,20 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: ^0.20.2
+  
+  # Firebase dependencies
+  firebase_core: ^2.24.2
+  cloud_firestore: ^4.13.6
+  firebase_auth: ^4.15.3
+  
+  # HTTP client for API calls
+  http: ^1.1.0
+  
+  # Secure storage for sensitive data
+  flutter_secure_storage: ^9.0.0
+  
+  # Crypto for password hashing
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

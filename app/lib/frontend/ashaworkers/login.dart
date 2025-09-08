@@ -4,6 +4,7 @@ import 'package:app/l10n/app_localizations.dart';
 import 'package:app/frontend/ashaworkers/home.dart';
 import 'package:app/frontend/ashaworkers/signup.dart';
 import 'package:app/locale/locale_controller.dart';
+import 'package:app/services/asha_auth_service.dart';
 
 const Color primaryBlue = Color(0xFF1E88E5);
 
@@ -20,6 +21,7 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  final AshaAuthService _authService = AshaAuthService();
 
   @override
   void dispose() {
@@ -38,20 +40,52 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
         _isLoading = true;
       });
 
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
+      try {
+        // Attempt to login using the Firestore-backed ASHA auth service
+        final result = await _authService.login(
+          _phoneController.text.trim(),
+          _passwordController.text.trim(),
+        );
 
-      setState(() {
-        _isLoading = false;
-      });
+        setState(() {
+          _isLoading = false;
+        });
 
-      // Navigate to home page on successful login
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const AshaWorkerHomePage(),
-        ),
-      );
+        if (!mounted) return;
+
+        if (result.isSuccess) {
+          // Navigate to home page on successful login, passing the user's name
+          final userName = result.userData?['name'] as String?;
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => AshaWorkerHomePage(userName: userName),
+            ),
+          );
+        } else {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.errorMessage ?? 'Login failed'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        if (!mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An error occurred: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     } else {
       // Show a quick hint if validation failed
       ScaffoldMessenger.of(context).showSnackBar(

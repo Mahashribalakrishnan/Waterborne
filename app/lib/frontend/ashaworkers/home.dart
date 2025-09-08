@@ -6,7 +6,8 @@ import 'package:app/frontend/ashaworkers/reports.dart';
 const Color primaryBlue = Color(0xFF1E88E5);
 
 class AshaWorkerHomePage extends StatefulWidget {
-  const AshaWorkerHomePage({Key? key}) : super(key: key);
+  final String? userName;
+  const AshaWorkerHomePage({Key? key, this.userName}) : super(key: key);
 
   @override
   State<AshaWorkerHomePage> createState() => _AshaWorkerHomePageState();
@@ -66,7 +67,9 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
             // Greeting
             const SizedBox(height: 8),
             Text(
-              AppLocalizations.of(context).t('hello_priya'),
+              (widget.userName != null && widget.userName!.trim().isNotEmpty)
+                  ? 'Hello, ${widget.userName}'
+                  : AppLocalizations.of(context).t('hello_priya'),
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,

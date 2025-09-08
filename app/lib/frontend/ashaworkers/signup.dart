@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app/locale/locale_controller.dart';
 import 'package:app/l10n/app_localizations.dart';
+import 'package:app/services/asha_auth_service.dart';
 
 // Use the same primary color as login page without importing it to avoid circular deps
 const Color primaryBlue = Color(0xFF1E88E5);
@@ -25,6 +26,7 @@ class _AshaWorkerSignUpPageState extends State<AshaWorkerSignUpPage> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+  final AshaAuthService _authService = AshaAuthService();
 
   // Region data (Northeast India focused)
   final List<String> _countries = const ['India'];
@@ -117,12 +119,59 @@ class _AshaWorkerSignUpPageState extends State<AshaWorkerSignUpPage> {
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
 
-    // After successful signup, go back to Login
-    Navigator.of(context).pop();
+    try {
+      // Register user using the Firestore-backed ASHA auth service
+      final result = await _authService.register(
+        phoneNumber: _phoneController.text.trim(),
+        password: _passwordController.text.trim(),
+        name: _nameController.text.trim(),
+        ashaId: _idController.text.trim(),
+        country: _selectedCountry,
+        state: _selectedState,
+        district: _selectedDistrict,
+        village: _selectedVillage,
+      );
+
+      setState(() => _isLoading = false);
+
+      if (!mounted) return;
+
+      if (result.isSuccess) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration successful! You can now login.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        // After successful signup, go back to Login
+        Navigator.of(context).pop();
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.errorMessage ?? 'Registration failed'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('An error occurred: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   InputDecoration _filledDecoration({
