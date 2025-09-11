@@ -22,6 +22,32 @@ class AshaAuthService {
     return digest.toString();
   }
 
+  /// Changes the user's password after verifying the old password.
+  Future<OperationResult> changePassword({
+    required String uid,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final docRef = _firestore.collection(_usersCollection).doc(uid);
+      final doc = await docRef.get();
+      if (!doc.exists) {
+        return OperationResult.failure('User not found');
+      }
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final storedHash = data['passwordHash'] as String?;
+      if (storedHash == null || storedHash != _hashPassword(oldPassword)) {
+        return OperationResult.failure('Old password is incorrect');
+      }
+      await docRef.update({'passwordHash': _hashPassword(newPassword)});
+      return OperationResult.success();
+    } on FirebaseException catch (e) {
+      return OperationResult.failure('Firestore error (${e.code}): ${e.message ?? 'unknown'}');
+    } catch (e) {
+      return OperationResult.failure('Change password failed: $e');
+    }
+  }
+
   Future<bool> _phoneExists(String phoneNumber) async {
     final snap = await _firestore
         .collection(_usersCollection)

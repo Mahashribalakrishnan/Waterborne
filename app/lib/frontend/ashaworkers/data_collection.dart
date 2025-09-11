@@ -7,6 +7,7 @@ import 'package:app/l10n/app_localizations.dart';
 import 'package:app/frontend/ashaworkers/home.dart';
 import 'package:app/frontend/ashaworkers/reports.dart';
 import 'package:app/frontend/ashaworkers/profile.dart';
+import 'package:app/frontend/ashaworkers/analytics.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -49,6 +50,9 @@ extension on _AshaWorkerDataCollectionPageState {
                 'name': m.name,
                 'gender': m.gender,
                 'age': m.age,
+                'phone': m.phone,
+                'affected': m.affected,
+                'disease': m.disease,
                 'symptoms': m.symptoms,
                 'notes': m.notes,
               })
@@ -61,10 +65,7 @@ extension on _AshaWorkerDataCollectionPageState {
 
       // Basic derived stats for reports page
       final int totalMembers = members.length;
-      final int affectedMembers = members.where((m) {
-        final s = (m['symptoms'] as String?)?.trim();
-        return s != null && s.isNotEmpty && s.toLowerCase() != 'none';
-      }).length;
+      final int affectedMembers = members.where((m) => (m['affected'] == true)).length;
 
       final data = {
         'asha': {
@@ -99,7 +100,29 @@ extension on _AshaWorkerDataCollectionPageState {
         'createdAt': FieldValue.serverTimestamp(),
       };
 
-      final docRef = await FirebaseFirestore.instance.collection('household_surveys').add(data);
+      // Create a global dedupe key across all users
+      final dedupeKey = '${_district.text.trim().toLowerCase()}|${_village.text.trim().toLowerCase()}|${_doorNo.text.trim().toLowerCase()}|${_headName.text.trim().toLowerCase()}';
+      final indexRef = FirebaseFirestore.instance.collection('household_surveys_index').doc(dedupeKey);
+      final indexSnap = await indexRef.get();
+      if (indexSnap.exists) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Duplicate entry detected. Data not saved.')));
+        return;
+      }
+
+      // Store under per-user subcollection when UID is available
+      final CollectionReference<Map<String, dynamic>> targetCol = (ashaUid != null && ashaUid.isNotEmpty)
+          ? FirebaseFirestore.instance.collection('users').doc(ashaUid).collection('household_surveys')
+          : FirebaseFirestore.instance.collection('household_surveys');
+
+      final docRef = await targetCol.add(data);
+
+      // Write index for global duplicate detection
+      await indexRef.set({
+        'ownerUid': ashaUid,
+        'refPath': docRef.path,
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t('dc_form_submitted')} (ID: ${docRef.id})')));
@@ -125,30 +148,6 @@ extension on _AshaWorkerDataCollectionPageState {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
-  }
-}
-
-class _NavIcon extends StatelessWidget {
-  final IconData icon;
-  final bool selected;
-  const _NavIcon({required this.icon, required this.selected});
-
-  @override
-  Widget build(BuildContext context) {
-    if (!selected) {
-      return Icon(icon);
-    }
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        gradient: _gbGradient,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(color: _primaryMint.withOpacity(0.25), blurRadius: 12, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Icon(icon, color: Colors.white, size: 20),
-    );
   }
 }
 
@@ -306,9 +305,12 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
   Future<void> _showAddMemberSheet() async {
     final name = TextEditingController();
     final age = TextEditingController();
+    final phone = TextEditingController();
     final notes = TextEditingController();
     String gender = 'Female';
     final symptoms = TextEditingController();
+    bool affected = false;
+    String? disease;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -317,74 +319,148 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
       builder: (ctx) {
         return Padding(
           padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Add Member', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
-                TextField(controller: name, decoration: _decoration('Name')),
-                const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(child: TextField(controller: age, keyboardType: TextInputType.number, decoration: _decoration('Age'))),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: InputDecorator(
-                      decoration: _decoration('Gender'),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: gender,
-                          isExpanded: true,
-                          items: const [
-                            DropdownMenuItem(value: 'Female', child: Text('Female')),
-                            DropdownMenuItem(value: 'Male', child: Text('Male')),
-                            DropdownMenuItem(value: 'Other', child: Text('Other')),
-                          ],
-                          onChanged: (v) {
-                            if (v != null) {
-                              gender = v;
-                              (ctx as Element).markNeedsBuild();
-                            }
-                          },
+          child: StatefulBuilder(
+            builder: (ctx, setSheetState) {
+              bool isMinor() {
+                final a = int.tryParse(age.text.trim());
+                return a != null && a < 18;
+              }
+
+              void handleAgeChanged(String _) {
+                final minor = isMinor();
+                if (minor) {
+                  phone.text = _phone.text.trim();
+                }
+                setSheetState(() {});
+              }
+
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Add Member', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 12),
+                    TextField(controller: name, decoration: _decoration('Name')),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(
+                        child: TextField(
+                          controller: age,
+                          keyboardType: TextInputType.number,
+                          decoration: _decoration('Age'),
+                          onChanged: handleAgeChanged,
                         ),
                       ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: InputDecorator(
+                          decoration: _decoration('Gender'),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: gender,
+                              isExpanded: true,
+                              items: const [
+                                DropdownMenuItem(value: 'Female', child: Text('Female')),
+                                DropdownMenuItem(value: 'Male', child: Text('Male')),
+                                DropdownMenuItem(value: 'Other', child: Text('Other')),
+                              ],
+                              onChanged: (v) {
+                                if (v != null) {
+                                  gender = v;
+                                  setSheetState(() {});
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: phone,
+                      keyboardType: TextInputType.phone,
+                      enabled: !isMinor(),
+                      decoration: _decoration('Phone Number').copyWith(
+                        helperText: isMinor() ? 'Auto-filled from household head for minors (<18)' : null,
+                      ),
                     ),
-                  ),
-                ]),
-                const SizedBox(height: 10),
-                TextField(controller: symptoms, decoration: _decoration('Symptoms (comma separated)')),
-                const SizedBox(height: 10),
-                TextField(controller: notes, maxLines: 3, decoration: _decoration('Notes')),
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (name.text.trim().isEmpty || age.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter Name and Age')));
-                          return;
-                        }
-                        setState(() {
-                          _members.add(_Member(
-                            name: name.text.trim(),
-                            gender: gender,
-                            age: age.text.trim(),
-                            symptoms: symptoms.text.trim(),
-                            notes: notes.text.trim(),
-                          ));
-                        });
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text('Add'),
+                    const SizedBox(height: 10),
+                    // Disease affected toggle
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Disease affected?'),
+                        Switch(
+                          value: affected,
+                          onChanged: (v) {
+                            setSheetState(() => affected = v);
+                          },
+                        ),
+                      ],
                     ),
+                    if (affected) ...[
+                      InputDecorator(
+                        decoration: _decoration('Disease'),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: disease,
+                            hint: const Text('Select disease'),
+                            isExpanded: true,
+                            items: const [
+                              DropdownMenuItem(value: 'Cholera', child: Text('Cholera')),
+                              DropdownMenuItem(value: 'Typhoid', child: Text('Typhoid')),
+                              DropdownMenuItem(value: 'Malaria', child: Text('Malaria')),
+                              DropdownMenuItem(value: 'Dengue', child: Text('Dengue')),
+                              DropdownMenuItem(value: 'Diarrhea', child: Text('Diarrhea')),
+                              DropdownMenuItem(value: 'Hepatitis A/E', child: Text('Hepatitis A/E')),
+                              DropdownMenuItem(value: 'Other', child: Text('Other')),
+                            ],
+                            onChanged: (v) => setSheetState(() => disease = v),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    TextField(controller: symptoms, decoration: _decoration('Symptoms (comma separated)')),
+                    const SizedBox(height: 10),
+                    TextField(controller: notes, maxLines: 3, decoration: _decoration('Notes')),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            if (name.text.trim().isEmpty || age.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter Name and Age')));
+                              return;
+                            }
+                            final isUnder18 = int.tryParse(age.text.trim()) != null && int.parse(age.text.trim()) < 18;
+                            final memberPhone = isUnder18 ? _phone.text.trim() : phone.text.trim();
+                            setState(() {
+                              _members.add(_Member(
+                                name: name.text.trim(),
+                                gender: gender,
+                                age: age.text.trim(),
+                                phone: memberPhone,
+                                affected: affected,
+                                disease: disease,
+                                symptoms: symptoms.text.trim(),
+                                notes: notes.text.trim(),
+                              ));
+                            });
+                            Navigator.pop(ctx);
+                          },
+                          child: const Text('Add'),
+                        ),
+                      ],
+                    )
                   ],
-                )
-              ],
-            ),
+                ),
+              );
+            },
           ),
         );
       },
@@ -678,18 +754,13 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
         ],
       ),
 
+      // Bottom Navigation (consistent with Home/Reports)
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: const Border(top: BorderSide(color: _border)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), offset: const Offset(0, -2), blurRadius: 10)],
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
         ),
         child: BottomNavigationBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
           currentIndex: _currentIndex,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
           onTap: (i) {
             setState(() => _currentIndex = i);
             if (i == 0) {
@@ -697,37 +768,32 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                 MaterialPageRoute(builder: (_) => const AshaWorkerHomePage()),
                 (route) => false,
               );
+            } else if (i == 1) {
+              // already on data collection
             } else if (i == 2) {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AshaWorkerReportsPage()),
               );
             } else if (i == 3) {
               Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AshaWorkerAnalyticsPage()),
+              );
+            } else if (i == 4) {
+              Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AshaWorkerProfilePage()),
               );
             }
           },
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: _primaryMint,
+          selectedItemColor: Theme.of(context).colorScheme.primary,
           unselectedItemColor: const Color(0xFF9CA3AF),
           showUnselectedLabels: true,
-          items: [
-            BottomNavigationBarItem(
-              icon: _NavIcon(icon: Icons.dashboard_customize_rounded, selected: _currentIndex == 0),
-              label: t('nav_home_title'),
-            ),
-            BottomNavigationBarItem(
-              icon: _NavIcon(icon: Icons.playlist_add_check_circle_outlined, selected: _currentIndex == 1),
-              label: t('nav_data_collection'),
-            ),
-            BottomNavigationBarItem(
-              icon: _NavIcon(icon: Icons.bar_chart_rounded, selected: _currentIndex == 2),
-              label: t('nav_reports'),
-            ),
-            BottomNavigationBarItem(
-              icon: _NavIcon(icon: Icons.account_circle_outlined, selected: _currentIndex == 3),
-              label: t('nav_profile'),
-            ),
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: 'Data Collection'),
+            BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Reports'),
+            BottomNavigationBarItem(icon: Icon(Icons.insert_chart_outlined), label: 'Analytics'),
+            BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Profile'),
           ],
         ),
       ),
@@ -739,10 +805,25 @@ class _Member {
   final String name;
   final String gender;
   final String age;
+  final String phone;
+  final bool affected;
+  final String? disease;
   final String symptoms;
   final String notes;
-  _Member({required this.name, required this.gender, required this.age, required this.symptoms, required this.notes});
-  String get summary => 'Name: $name, Gender: $gender, Age: $age, Symptoms: ${symptoms.isEmpty ? 'None' : symptoms}, Notes: ${notes.isEmpty ? '—' : notes}';
+  _Member({
+    required this.name,
+    required this.gender,
+    required this.age,
+    required this.phone,
+    required this.affected,
+    this.disease,
+    required this.symptoms,
+    required this.notes,
+  });
+  String get summary {
+    final dPart = affected ? (disease ?? 'Unknown disease') : 'No disease';
+    return 'Name: $name, Gender: $gender, Age: $age, Phone: $phone, Disease: $dPart, Symptoms: ${symptoms.isEmpty ? 'None' : symptoms}, Notes: ${notes.isEmpty ? '—' : notes}';
+  }
 }
 
 InputDecoration _decoration(String label) {

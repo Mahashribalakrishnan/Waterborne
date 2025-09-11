@@ -53,11 +53,19 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
         if (!mounted) return;
 
         if (result.isSuccess) {
-          // Mark as returning user for future app launches
+          // Mark as returning user and persist ASHA identity for scoping
           try {
             // ignore: use_build_context_synchronously
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('isReturningUser', true);
+            final data = result.userData ?? const {};
+            await prefs.setString('asha_uid', (data['uid'] ?? '').toString());
+            await prefs.setString('asha_id', (data['ashaId'] ?? '').toString());
+            await prefs.setString('asha_name', (data['name'] ?? '').toString());
+            await prefs.setString('asha_state', (data['state'] ?? '').toString());
+            await prefs.setString('asha_district', (data['district'] ?? '').toString());
+            await prefs.setString('asha_village', (data['village'] ?? '').toString());
+            await prefs.setString('asha_phone', (data['phoneNumber'] ?? '').toString());
           } catch (_) {}
           // Navigate to home page on successful login, passing the user's profile context
           final userName = result.userData?['name'] as String?;

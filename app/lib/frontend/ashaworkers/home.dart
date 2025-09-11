@@ -5,6 +5,7 @@ import 'package:app/locale/locale_controller.dart';
 import 'package:app/frontend/ashaworkers/reports.dart';
 import 'package:app/frontend/ashaworkers/profile.dart';
 import 'package:app/frontend/ashaworkers/data_collection.dart';
+import 'package:app/frontend/ashaworkers/analytics.dart';
 import 'package:app/frontend/ashaworkers/login.dart';
 import 'package:app/services/dashboard_service.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -41,29 +42,103 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
   Future<({int daily, int weekly, int monthly})>? _countsFuture;
   Future<List<Map<String, dynamic>>>? _recentReportsFuture;
   Future<({double lat, double lon})?>? _geoFuture;
+  String? _uid;
+  String? _name;
+  String? _village;
+  String? _district;
 
   @override
   void initState() {
     super.initState();
-    // Prepare async fetches when we have location context
-    if ((widget.village ?? '').isNotEmpty && (widget.district ?? '').isNotEmpty) {
-      final v = widget.village!.trim();
-      final d = widget.district!.trim();
-      _riskFuture = _dashboard.fetchRiskLevel(district: d, village: v);
-      _countsFuture = _dashboard.fetchCaseCounts(village: v);
-      _recentReportsFuture = _dashboard.fetchRecentReports(village: v, limit: 5);
-      _geoFuture = _dashboard.geocodeVillage(village: v, district: d);
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('asha_uid');
+      final spName = prefs.getString('asha_name');
+      final spVillage = prefs.getString('asha_village');
+      final spDistrict = prefs.getString('asha_district');
+      final v = ((widget.village ?? spVillage) ?? '').trim();
+      final d = ((widget.district ?? spDistrict) ?? '').trim();
+      setState(() {
+        _uid = uid;
+        _name = (widget.userName ?? spName);
+        _village = v.isNotEmpty ? v : null;
+        _district = d.isNotEmpty ? d : null;
+        if (v.isNotEmpty && d.isNotEmpty) {
+          _riskFuture = _dashboard.fetchRiskLevel(district: d, village: v);
+          _geoFuture = _dashboard.geocodeVillage(village: v, district: d);
+        }
+        if (uid != null && uid.isNotEmpty) {
+          _countsFuture = _computeCounts(uid);
+          _recentReportsFuture = _fetchRecentReportsByUser(uid, limit: 5);
+        } else {
+          _countsFuture = Future.value((daily: 0, weekly: 0, monthly: 0));
+          _recentReportsFuture = Future.value(const []);
+        }
+      });
+    } catch (_) {
+      setState(() {
+        _countsFuture = Future.value((daily: 0, weekly: 0, monthly: 0));
+        _recentReportsFuture = Future.value(const []);
+      });
+    }
+  }
+
+  Future<({int daily, int weekly, int monthly})> _computeCounts(String uid) async {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final startOfWeek = startOfDay.subtract(Duration(days: startOfDay.weekday - 1));
+    final startOfMonth = DateTime(now.year, now.month, 1);
+
+    int daily = 0, weekly = 0, monthly = 0;
+    try {
+      final col = FirebaseFirestore.instance.collection('users').doc(uid).collection('household_surveys');
+      final snap = await col.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth)).get();
+      for (final d in snap.docs) {
+        final ts = d.data()['createdAt'];
+        DateTime when;
+        if (ts is Timestamp) when = ts.toDate();
+        else if (ts is int) when = DateTime.fromMillisecondsSinceEpoch(ts);
+        else if (ts is String) when = DateTime.tryParse(ts) ?? now;
+        else when = now;
+        if (!when.isBefore(startOfMonth)) monthly++;
+        if (!when.isBefore(startOfWeek)) weekly++;
+        if (!when.isBefore(startOfDay)) daily++;
+      }
+    } catch (_) {}
+    return (daily: daily, weekly: weekly, monthly: monthly);
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchRecentReportsByUser(String uid, {int limit = 5}) async {
+    try {
+      final col = FirebaseFirestore.instance.collection('users').doc(uid).collection('household_surveys');
+      final snap = await col.orderBy('createdAt', descending: true).limit(limit).get();
+      return snap.docs.map((d) {
+        final data = d.data();
+        final stats = (data['stats'] as Map?)?.cast<String, dynamic>() ?? {};
+        final count = (stats['affectedMembers'] ?? stats['totalMembers'] ?? 0) as int;
+        return {
+          'createdAt': data['createdAt'],
+          'count': count,
+          'synced': true,
+        };
+      }).toList();
+    } catch (_) {
+      return [];
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final name = (widget.userName != null && widget.userName!.trim().isNotEmpty)
-        ? widget.userName!
+    final name = (_name != null && _name!.trim().isNotEmpty)
+        ? _name!
         : AppLocalizations.of(context).t('hello_priya').replaceAll('Hello, ', '');
-    final village = widget.village ?? AppLocalizations.of(context).t('village_rampur');
-    final district = widget.district ?? AppLocalizations.of(context).t('district_jaipur');
+    final village = _village ?? widget.village ?? AppLocalizations.of(context).t('village_rampur');
+    final district = _district ?? widget.district ?? AppLocalizations.of(context).t('district_jaipur');
     final stage = widget.outbreakStage ?? 'Monitoring';
     final risk = (widget.riskLevel ?? 'low').toLowerCase();
 
@@ -340,7 +415,7 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
         ),
       ),
 
-      // Bottom Navigation
+      // Bottom Navigation (5 tabs)
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
@@ -364,6 +439,12 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
             } else if (i == 3) {
               Navigator.of(context).push(
                 MaterialPageRoute(
+                  builder: (_) => const AshaWorkerAnalyticsPage(),
+                ),
+              );
+            } else if (i == 4) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
                   builder: (_) => const AshaWorkerProfilePage(),
                 ),
               );
@@ -377,6 +458,7 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
             BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
             BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: 'Data Collection'),
             BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Reports'),
+            BottomNavigationBarItem(icon: Icon(Icons.insert_chart_outlined), label: 'Analytics'),
             BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Profile'),
           ],
         ),
