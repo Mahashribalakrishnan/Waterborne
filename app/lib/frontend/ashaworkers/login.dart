@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/frontend/ashaworkers/home.dart';
 import 'package:app/frontend/ashaworkers/signup.dart';
@@ -52,11 +53,23 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
         if (!mounted) return;
 
         if (result.isSuccess) {
-          // Navigate to home page on successful login, passing the user's name
+          // Mark as returning user for future app launches
+          try {
+            // ignore: use_build_context_synchronously
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('isReturningUser', true);
+          } catch (_) {}
+          // Navigate to home page on successful login, passing the user's profile context
           final userName = result.userData?['name'] as String?;
+          final village = result.userData?['village'] as String?;
+          final district = result.userData?['district'] as String?;
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => AshaWorkerHomePage(userName: userName),
+              builder: (_) => AshaWorkerHomePage(
+                userName: userName,
+                village: village,
+                district: district,
+              ),
             ),
           );
         } else {
@@ -88,7 +101,7 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
       // Show a quick hint if validation failed
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter a 10-digit phone number and an 8-character password.'),
+          content: Text('Please enter a 10-digit phone number and a 10-character password with uppercase and special character.'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -133,7 +146,19 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                // Centered Logo
                 const SizedBox(height: 16),
+                const Center(
+                  child: SizedBox(
+                    height: 150,
+                    child: Image(
+                      image: AssetImage('assets/images/logo.png'),
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 // Headline
                 Center(
                   child: Text(
@@ -159,7 +184,7 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                   ),
                 ),
                 const SizedBox(height: 28),
-                // Phone Number Field (filled, rounded, suffix icon)
+                // Phone Number Field (prefix icon on the left)
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
@@ -171,7 +196,7 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                   decoration: InputDecoration(
                     hintText: AppLocalizations.of(context).t('hint_phone'),
                     hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
-                    suffixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF9CA3AF)),
+                    prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF9CA3AF), size: 22),
                     contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
                   ),
                   validator: (value) {
@@ -190,17 +215,18 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   inputFormatters: [
-                    LengthLimitingTextInputFormatter(8),
+                    LengthLimitingTextInputFormatter(10),
                   ],
                   style: const TextStyle(fontSize: 16),
                   decoration: InputDecoration(
                     hintText: AppLocalizations.of(context).t('hint_password'),
                     hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF9CA3AF)),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF9CA3AF), size: 22),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_off : Icons.visibility,
                         color: const Color(0xFF9CA3AF),
+                        size: 22,
                       ),
                       onPressed: () {
                         setState(() {
@@ -214,8 +240,10 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                     if (value == null || value.isEmpty) {
                       return AppLocalizations.of(context).t('password_empty');
                     }
-                    if (value.length != 8) {
-                      return AppLocalizations.of(context).t('password_length_exact');
+                    final hasUpper = value.contains(RegExp(r'[A-Z]'));
+                    final hasSpecial = value.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>_\-]'));
+                    if (value.length != 10 || !hasUpper || !hasSpecial) {
+                      return 'Password must be exactly 10 characters, include at least one uppercase letter and one special character';
                     }
                     return null;
                   },
@@ -298,7 +326,7 @@ class _AshaWorkerLoginPageState extends State<AshaWorkerLoginPage> {
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white, // Will be wrapped by a TextButton if needed
+                          color: Colors.black87,
                         ),
                       ),
                     ),

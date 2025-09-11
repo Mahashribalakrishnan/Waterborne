@@ -8,6 +8,7 @@ import 'package:app/frontend/ashaworkers/home.dart';
 import 'package:app/frontend/ashaworkers/reports.dart';
 import 'package:app/frontend/ashaworkers/profile.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Palette: Primary mint (#00D09E) with white and soft mint surfaces
 const Color _primaryMint = Color(0xFF00D09E);
@@ -34,6 +35,14 @@ extension on _AshaWorkerDataCollectionPageState {
     final t = AppLocalizations.of(context).t;
     setState(() => _submitting = true);
     try {
+      // Resolve identifiers for per-user scoping
+      final prefs = await SharedPreferences.getInstance();
+      final ashaUid = prefs.getString('asha_uid');
+      final ashaId = prefs.getString('asha_id');
+      final ashaName = prefs.getString('asha_name');
+      final ashaVillage = prefs.getString('asha_village');
+      final ashaDistrict = prefs.getString('asha_district');
+
       // Prepare payload
       final members = _members
           .map((m) => {
@@ -50,7 +59,21 @@ extension on _AshaWorkerDataCollectionPageState {
         imageBytesBase64 = base64Encode(_imageBytes!);
       }
 
+      // Basic derived stats for reports page
+      final int totalMembers = members.length;
+      final int affectedMembers = members.where((m) {
+        final s = (m['symptoms'] as String?)?.trim();
+        return s != null && s.isNotEmpty && s.toLowerCase() != 'none';
+      }).length;
+
       final data = {
+        'asha': {
+          'uid': ashaUid,
+          'ashaId': ashaId,
+          'name': ashaName,
+          'village': ashaVillage,
+          'district': ashaDistrict,
+        },
         'household': {
           'doorNo': _doorNo.text.trim(),
           'headName': _headName.text.trim(),
@@ -68,6 +91,10 @@ extension on _AshaWorkerDataCollectionPageState {
         'image': {
           'imageUrl': _imageUrl,
           if (imageBytesBase64 != null) 'imageBytesBase64': imageBytesBase64,
+        },
+        'stats': {
+          'totalMembers': totalMembers,
+          'affectedMembers': affectedMembers,
         },
         'createdAt': FieldValue.serverTimestamp(),
       };

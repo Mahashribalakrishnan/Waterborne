@@ -1,4 +1,7 @@
 class User {
+  // Optional local DB primary key (SQLite)
+  final int? id;
+  // Remote UID (e.g., Firestore)
   final String? uid;
   final String phoneNumber;
   final String password;
@@ -13,6 +16,7 @@ class User {
   final DateTime updatedAt;
 
   User({
+    this.id,
     this.uid,
     required this.phoneNumber,
     required this.password,
@@ -30,6 +34,7 @@ class User {
   // Convert User object to Map for Firestore operations
   Map<String, dynamic> toMap() {
     return {
+      // Intentionally omit 'id' so SQLite can auto-increment on insert
       'phoneNumber': phoneNumber,
       'password': password,
       'name': name,
@@ -47,6 +52,7 @@ class User {
   // Create User object from Firestore document
   factory User.fromMap(Map<String, dynamic> map, {String? uid}) {
     return User(
+      id: map['id'] as int?,
       uid: uid,
       phoneNumber: map['phoneNumber'] ?? '',
       password: map['password'] ?? '',
@@ -64,6 +70,7 @@ class User {
 
   // Create a copy of User with updated fields
   User copyWith({
+    int? id,
     String? uid,
     String? phoneNumber,
     String? password,
@@ -78,6 +85,7 @@ class User {
     DateTime? updatedAt,
   }) {
     return User(
+      id: id ?? this.id,
       uid: uid ?? this.uid,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       password: password ?? this.password,
@@ -95,13 +103,14 @@ class User {
 
   @override
   String toString() {
-    return 'User{uid: $uid, phoneNumber: $phoneNumber, name: $name, email: $email}';
+    return 'User{id: $id, uid: $uid, phoneNumber: $phoneNumber, name: $name, email: $email}';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is User &&
+        other.id == id &&
         other.uid == uid &&
         other.phoneNumber == phoneNumber &&
         other.password == password &&
@@ -111,7 +120,8 @@ class User {
 
   @override
   int get hashCode {
-    return uid.hashCode ^
+    return (id ?? 0).hashCode ^
+        uid.hashCode ^
         phoneNumber.hashCode ^
         password.hashCode ^
         name.hashCode ^

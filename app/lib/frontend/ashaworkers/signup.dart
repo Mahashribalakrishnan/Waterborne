@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app/frontend/ashaworkers/login.dart';
 import 'package:app/locale/locale_controller.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/services/asha_auth_service.dart';
@@ -98,13 +100,11 @@ class _AshaWorkerSignUpPageState extends State<AshaWorkerSignUpPage> {
   bool _isValidPhone(String input) => RegExp(r'^[0-9]{10}$').hasMatch(input);
 
   bool _isValidPassword(String input) {
-    // Exactly 8 chars, at least one upper, one lower, one digit, one special
-    if (input.length != 8) return false;
+    // Exactly 10 chars; must include at least one uppercase and one special character
+    if (input.length != 10) return false;
     final hasUpper = input.contains(RegExp(r'[A-Z]'));
-    final hasLower = input.contains(RegExp(r'[a-z]'));
-    final hasDigit = input.contains(RegExp(r'[0-9]'));
     final hasSpecial = input.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>_\-]'));
-    return hasUpper && hasLower && hasDigit && hasSpecial;
+    return hasUpper && hasSpecial;
   }
 
   Future<void> _submit() async {
@@ -135,6 +135,11 @@ class _AshaWorkerSignUpPageState extends State<AshaWorkerSignUpPage> {
       if (!mounted) return;
 
       if (result.isSuccess) {
+        // Mark as returning user for future launches
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('isReturningUser', true);
+        } catch (_) {}
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -144,8 +149,10 @@ class _AshaWorkerSignUpPageState extends State<AshaWorkerSignUpPage> {
           ),
         );
         
-        // After successful signup, go back to Login
-        Navigator.of(context).pop();
+        // After successful signup, go to Login (works even if SignUp was the first page)
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const AshaWorkerLoginPage()),
+        );
       } else {
         // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -234,168 +241,206 @@ class _AshaWorkerSignUpPageState extends State<AshaWorkerSignUpPage> {
     );
   }
 
+  Widget _boxedField({
+    required Widget child,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final states = _statesByCountry[_selectedCountry] ?? [];
     final districts = _selectedState != null ? (_districtsByState[_selectedState!] ?? []) : <String>[];
     final villages = _selectedDistrict != null ? (_villagesByDistrict[_selectedDistrict!] ?? []) : <String>[];
-
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        title: Text(
-          AppLocalizations.of(context).t('title_signup'),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
+        title: Text(AppLocalizations.of(context).t('title_signup')),
         centerTitle: true,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Form(
-            key: _formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Language selector (same as login)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.public, size: 20, color: Colors.black54),
-                      onSelected: (code) {
-                        switch (code) {
-                          case 'ne':
-                          case 'en':
-                          case 'as':
-                          case 'hi':
-                            LocaleController.instance.setLocale(Locale(code));
-                            break;
-                        }
-                      },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(value: 'ne', child: Text('Nepali')),
-                        PopupMenuItem(value: 'en', child: Text('English')),
-                        PopupMenuItem(value: 'as', child: Text('Assamese')),
-                        PopupMenuItem(value: 'hi', child: Text('Hindi')),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // ASHA Worker ID
-                TextFormField(
-                  controller: _idController,
-                  textInputAction: TextInputAction.next,
-                  style: const TextStyle(fontSize: 16),
-                  decoration: _filledDecoration(
-                    hint: AppLocalizations.of(context).t('hint_asha_id'),
-                    suffixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF9CA3AF)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Language selector (same as login)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.public, size: 20, color: Colors.black54),
+                    onSelected: (code) {
+                      switch (code) {
+                        case 'ne':
+                        case 'en':
+                        case 'as':
+                        case 'hi':
+                          LocaleController.instance.setLocale(Locale(code));
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'ne', child: Text('Nepali')),
+                      PopupMenuItem(value: 'en', child: Text('English')),
+                      PopupMenuItem(value: 'as', child: Text('Assamese')),
+                      PopupMenuItem(value: 'hi', child: Text('Hindi')),
+                    ],
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? AppLocalizations.of(context).t('id_empty')
-                      : null,
-                ),
-                const SizedBox(height: 12),
-
-                // Full Name
-                TextFormField(
-                  controller: _nameController,
-                  textInputAction: TextInputAction.next,
-                  style: const TextStyle(fontSize: 16),
-                  decoration: _filledDecoration(
-                    hint: AppLocalizations.of(context).t('hint_full_name'),
-                    suffixIcon: const Icon(Icons.person_outline, color: Color(0xFF9CA3AF)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Static Logo at top
+              const Center(
+                child: SizedBox(
+                  height: 150,
+                  child: Image(
+                    image: AssetImage('assets/images/logo.png'),
+                    fit: BoxFit.contain,
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? AppLocalizations.of(context).t('name_empty')
-                      : null,
                 ),
-                const SizedBox(height: 12),
+              ),
+              const SizedBox(height: 8),
+              // Scrollable form below logo
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
 
-                // Phone Number
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(10),
-                  ],
-                  style: const TextStyle(fontSize: 16),
-                  decoration: _filledDecoration(
-                    hint: AppLocalizations.of(context).t('hint_phone'),
-                    suffixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF9CA3AF)),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return AppLocalizations.of(context).t('phone_empty');
-                    }
-                    if (!_isValidPhone(value)) {
-                      return AppLocalizations.of(context).t('phone_invalid');
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
+                        // ASHA Worker ID
+                        _boxedField(
+                          child: TextFormField(
+                            controller: _idController,
+                            textInputAction: TextInputAction.next,
+                            style: const TextStyle(fontSize: 16),
+                            decoration: _filledDecoration(
+                              hint: AppLocalizations.of(context).t('hint_asha_id'),
+                              prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF9CA3AF), size: 22),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? AppLocalizations.of(context).t('id_empty')
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
 
-                // Password
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  inputFormatters: [
-                    LengthLimitingTextInputFormatter(8),
-                  ],
-                  style: const TextStyle(fontSize: 16),
-                  decoration: _filledDecoration(
-                    hint: AppLocalizations.of(context).t('hint_password'),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                        color: const Color(0xFF9CA3AF),
-                      ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF9CA3AF)),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return AppLocalizations.of(context).t('password_empty');
-                    if (!_isValidPassword(value)) {
-                      return AppLocalizations.of(context).t('password_rules');
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
+                        // Full Name
+                        _boxedField(
+                          child: TextFormField(
+                            controller: _nameController,
+                            textInputAction: TextInputAction.next,
+                            style: const TextStyle(fontSize: 16),
+                            decoration: _filledDecoration(
+                              hint: AppLocalizations.of(context).t('hint_full_name'),
+                              prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF9CA3AF), size: 22),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? AppLocalizations.of(context).t('name_empty')
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
 
-                // Confirm Password
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirmPassword,
-                  inputFormatters: [
-                    LengthLimitingTextInputFormatter(8),
-                  ],
-                  style: const TextStyle(fontSize: 16),
-                  decoration: _filledDecoration(
-                    hint: AppLocalizations.of(context).t('hint_confirm_password'),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-                        color: const Color(0xFF9CA3AF),
-                      ),
-                      onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                    ),
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF9CA3AF)),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return AppLocalizations.of(context).t('confirm_password_empty');
-                    if (value != _passwordController.text) return AppLocalizations.of(context).t('password_mismatch');
-                    if (!_isValidPassword(value)) return AppLocalizations.of(context).t('password_rules');
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
+                        // Phone Number
+                        _boxedField(
+                          child: TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(10),
+                            ],
+                            style: const TextStyle(fontSize: 16),
+                            decoration: _filledDecoration(
+                              hint: AppLocalizations.of(context).t('hint_phone'),
+                              prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF9CA3AF), size: 22),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return AppLocalizations.of(context).t('phone_empty');
+                              }
+                              if (!_isValidPhone(value)) {
+                                return AppLocalizations.of(context).t('phone_invalid');
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Password
+                        _boxedField(
+                          child: TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            inputFormatters: [
+                              LengthLimitingTextInputFormatter(10),
+                            ],
+                            style: const TextStyle(fontSize: 16),
+                            decoration: _filledDecoration(
+                              hint: AppLocalizations.of(context).t('hint_password'),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                  color: const Color(0xFF9CA3AF),
+                                ),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                              prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF9CA3AF), size: 22),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) return AppLocalizations.of(context).t('password_empty');
+                              if (!_isValidPassword(value)) {
+                                return 'Password must be exactly 10 characters, include at least one uppercase letter and one special character';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Confirm Password
+                        _boxedField(
+                          child: TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: _obscureConfirmPassword,
+                            inputFormatters: [
+                              LengthLimitingTextInputFormatter(10),
+                            ],
+                            style: const TextStyle(fontSize: 16),
+                            decoration: _filledDecoration(
+                              hint: AppLocalizations.of(context).t('hint_confirm_password'),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                                  color: const Color(0xFF9CA3AF),
+                                ),
+                                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                              ),
+                              prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF9CA3AF)),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) return AppLocalizations.of(context).t('confirm_password_empty');
+                              if (value != _passwordController.text) return AppLocalizations.of(context).t('password_mismatch');
+                              if (!_isValidPassword(value)) return 'Password must be exactly 10 characters, include at least one uppercase letter and one special character';
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
 
                 // Country
                 _dropdownField<String>(
@@ -456,58 +501,66 @@ class _AshaWorkerSignUpPageState extends State<AshaWorkerSignUpPage> {
 
                 const SizedBox(height: 20),
 
-                // Sign Up Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
+                        // Sign Up Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
-                          )
-                        : Text(
-                            AppLocalizations.of(context).t('sign_up'),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    AppLocalizations.of(context).t('sign_up'),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Back to Login
+                        Center(
+                          child: TextButton(
+                            onPressed: _isLoading
+                                ? null
+                                : () => Navigator.of(context).pushReplacement(
+                                      MaterialPageRoute(builder: (_) => const AshaWorkerLoginPage()),
+                                    ),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(0, 0),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              AppLocalizations.of(context).t('back_to_login'),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
                             ),
                           ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Back to Login
-                Center(
-                  child: TextButton(
-                    onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 0),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      AppLocalizations.of(context).t('back_to_login'),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black87,
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
