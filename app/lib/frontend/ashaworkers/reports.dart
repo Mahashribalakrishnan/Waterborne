@@ -115,12 +115,12 @@ class _AshaWorkerReportsPageState extends State<AshaWorkerReportsPage> {
             selectedItemColor: cs.primary,
             unselectedItemColor: const Color(0xFF9CA3AF),
             showUnselectedLabels: true,
-            items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-              BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: 'Data Collection'),
-              BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Reports'),
-              BottomNavigationBarItem(icon: Icon(Icons.insert_chart_outlined), label: 'Analytics'),
-              BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Profile'),
+            items: [
+              BottomNavigationBarItem(icon: const Icon(Icons.home_rounded), label: t('nav_home_title')),
+              BottomNavigationBarItem(icon: const Icon(Icons.fact_check_outlined), label: t('nav_data_collection')),
+              BottomNavigationBarItem(icon: const Icon(Icons.receipt_long_outlined), label: t('nav_reports')),
+              BottomNavigationBarItem(icon: const Icon(Icons.insert_chart_outlined), label: t('nav_analytics')),
+              BottomNavigationBarItem(icon: const Icon(Icons.person_outline_rounded), label: t('nav_profile')),
             ],
           ),
         ),
@@ -153,7 +153,9 @@ class _ReportTabState extends State<_ReportTab> {
         final uid = snap.data;
         if (uid == null || uid.isEmpty) return _emptyState(t('no_recent_reports'));
         final query = FirebaseFirestore.instance
-            .collection('users')
+            .collection('appdata')
+            .doc('main')
+            .collection('ashwadata')
             .doc(uid)
             .collection('household_surveys')
             .orderBy('createdAt', descending: true)
@@ -304,6 +306,7 @@ class _ReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context).t;
     final data = doc.data();
     final hh = (data['household'] as Map?)?.cast<String, dynamic>() ?? {};
     final members = (data['members'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
@@ -342,16 +345,16 @@ class _ReportCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Village: ${hh['village'] ?? '-'} • Door: ${hh['doorNo'] ?? '-'}',
+                      '${t('village_label')}: ${hh['village'] ?? '-'} • ${t('door_no')}: ${hh['doorNo'] ?? '-'}',
                       style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Head: ${hh['headName'] ?? '-'}',
+                      '${t('head')}: ${hh['headName'] ?? '-'}',
                       style: const TextStyle(fontSize: 16, color: Colors.black87, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
-                    Text('Affected: $affectedPerson • Disease: $disease', style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+                    Text('${t('affected')}: $affectedPerson • ${t('disease')}: $disease', style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
                     const SizedBox(height: 6),
                     Text(dateStr, style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
                   ],
@@ -372,6 +375,7 @@ class _ReportCard extends StatelessWidget {
   }
 
   void _showDetails(BuildContext context, Map<String, dynamic> data) {
+    final t = AppLocalizations.of(context).t;
     final hh = (data['household'] as Map?)?.cast<String, dynamic>() ?? {};
     final members = (data['members'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
     showModalBottomSheet(
@@ -385,15 +389,15 @@ class _ReportCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Household Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                Text(t('household_details'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
-                Text('Head: ${hh['headName'] ?? '-'}'),
-                Text('Door No: ${hh['doorNo'] ?? '-'}'),
-                Text('Village: ${hh['village'] ?? '-'}'),
-                Text('District: ${hh['district'] ?? '-'}'),
-                Text('Phone: ${hh['phone'] ?? '-'}'),
+                Text('${t('head')}: ${hh['headName'] ?? '-'}'),
+                Text('${t('door_no')}: ${hh['doorNo'] ?? '-'}'),
+                Text('${t('village')}: ${hh['village'] ?? '-'}'),
+                Text('${t('district')}: ${hh['district'] ?? '-'}'),
+                Text('${t('phone')}: ${hh['phone'] ?? '-'}'),
                 const SizedBox(height: 12),
-                const Text('Members', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                Text(t('members'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 for (final m in members) ...[
                   Container(
@@ -405,12 +409,12 @@ class _ReportCard extends StatelessWidget {
                       children: [
                         Text(m['name'] ?? '-', style: const TextStyle(fontWeight: FontWeight.w700)),
                         const SizedBox(height: 4),
-                        Text('Age: ${m['age'] ?? '-'} • Gender: ${m['gender'] ?? '-'}'),
-                        Text('Phone: ${m['phone'] ?? '-'}'),
-                        Text('Affected: ${m['affected'] == true ? 'Yes' : 'No'}'),
-                        if (m['affected'] == true) Text('Disease: ${m['disease'] ?? '-'}'),
-                        if ((m['symptoms'] ?? '').toString().isNotEmpty) Text('Symptoms: ${m['symptoms']}'),
-                        if ((m['notes'] ?? '').toString().isNotEmpty) Text('Notes: ${m['notes']}'),
+                        Text('${t('age')}: ${m['age'] ?? '-'} • ${t('gender')}: ${m['gender'] ?? '-'}'),
+                        Text('${t('phone')}: ${m['phone'] ?? '-'}'),
+                        Text('${t('affected')}: ${m['affected'] == true ? t('yes') : t('no')}'),
+                        if (m['affected'] == true) Text('${t('disease')}: ${m['disease'] ?? '-'}'),
+                        if ((m['symptoms'] ?? '').toString().isNotEmpty) Text('${t('symptoms_hint')}: ${m['symptoms']}'),
+                        if ((m['notes'] ?? '').toString().isNotEmpty) Text('${t('dc_notes')}: ${m['notes']}'),
                       ],
                     ),
                   ),
@@ -446,6 +450,7 @@ class _FilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context).t;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -462,7 +467,7 @@ class _FilterBar extends StatelessWidget {
                   children: [
                     Switch(value: affectedOnly, onChanged: (v) => onChanged(v, syncedOnly, disease)),
                     const SizedBox(width: 4),
-                    const Text('Affected only'),
+                    Text(t('filter_affected_only')),
                   ],
                 ),
               ),
@@ -471,7 +476,7 @@ class _FilterBar extends StatelessWidget {
                   children: [
                     Switch(value: syncedOnly, onChanged: (v) => onChanged(affectedOnly, v, disease)),
                     const SizedBox(width: 4),
-                    const Text('Synced only'),
+                    Text(t('filter_synced_only')),
                   ],
                 ),
               ),
@@ -482,11 +487,11 @@ class _FilterBar extends StatelessWidget {
             children: [
               Expanded(
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Disease', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t('filter_disease'), border: const OutlineInputBorder()),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: disease != null && diseases.contains(disease) ? disease : null,
-                      hint: const Text('All diseases'),
+                      hint: Text(t('all_diseases')),
                       isExpanded: true,
                       items: [
                         for (final d in diseases)
@@ -498,7 +503,7 @@ class _FilterBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              OutlinedButton.icon(onPressed: onClear, icon: Icon(Icons.filter_alt_off, color: cs.primary), label: const Text('Clear')),
+              OutlinedButton.icon(onPressed: onClear, icon: Icon(Icons.filter_alt_off, color: cs.primary), label: Text(t('clear'))),
             ],
           ),
         ],

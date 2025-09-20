@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart';
 
 /// Auth service for ASHA Worker app backed by Firestore.
 ///
-/// Firestore collection used: `users`.
+/// Firestore collection used: `appdata/main/users`.
 /// Ensure Firebase is initialized before using this class:
 ///   await Firebase.initializeApp(...);
 class AshaAuthService {
@@ -13,7 +13,7 @@ class AshaAuthService {
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
-  static const String _usersCollection = 'users';
+  static const String _usersCollection = 'appdata/main/users';
 
   // =============== Helpers ===============
   String _hashPassword(String password) {

@@ -34,7 +34,7 @@ class AshaWorkerHomePage extends StatefulWidget {
   State<AshaWorkerHomePage> createState() => _AshaWorkerHomePageState();
 }
 
-class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
+class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   final _dashboard = DashboardService();
 
@@ -42,15 +42,66 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
   Future<({int daily, int weekly, int monthly})>? _countsFuture;
   Future<List<Map<String, dynamic>>>? _recentReportsFuture;
   Future<({double lat, double lon})?>? _geoFuture;
+  Future<({String risk, Map<String, dynamic>? latest, Map<String, dynamic>? daily, List<dynamic>? reasons})>? _villageStatusFuture;
   String? _uid;
   String? _name;
   String? _village;
   String? _district;
+  late final AnimationController _pulseCtrl;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+  }
+
+  Future<({String risk, Map<String, dynamic>? latest, Map<String, dynamic>? daily, List<dynamic>? reasons})> _fetchVillageStatus(String district, String village) async {
+    try {
+      final col = FirebaseFirestore.instance
+          .collection('appdata')
+          .doc('main')
+          .collection('villages');
+      final q = await col
+          .where('name', isEqualTo: village)
+          .where('district', isEqualTo: district)
+          .limit(1)
+          .get();
+      if (q.docs.isEmpty) {
+        return (risk: 'green', latest: null, daily: null, reasons: null);
+      }
+      final base = col.doc(q.docs.first.id);
+      final statusDoc = await base.collection('status').doc('current_risk').get();
+      final sd = statusDoc.data();
+      final risk = (sd?['risk'] ?? 'GREEN').toString().toLowerCase();
+      final reasons = (sd?['reason'] as List?)?.cast<dynamic>();
+      final latestSnap = await base.collection('hourly').orderBy('timestamp', descending: true).limit(1).get();
+      final latest = latestSnap.docs.isNotEmpty ? latestSnap.docs.first.data() : null;
+      // today's daily aggregation if available
+      final today = DateTime.now();
+      final dailyId = '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      final dailyDoc = await base.collection('daily').doc(dailyId).get();
+      final daily = dailyDoc.data();
+      return (risk: risk, latest: latest, daily: daily, reasons: reasons);
+    } catch (_) {
+      return (risk: 'green', latest: null, daily: null, reasons: null);
+    }
+  }
+
+  Future<String?> _fetchUserRisk(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('appdata')
+          .doc('main')
+          .collection('users')
+          .doc(uid)
+          .get();
+      final data = doc.data() as Map<String, dynamic>?;
+      final r = (data?['riskLevel'] ?? data?['risk'] ?? '').toString();
+      return r.isNotEmpty ? r : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -67,9 +118,22 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
         _name = (widget.userName ?? spName);
         _village = v.isNotEmpty ? v : null;
         _district = d.isNotEmpty ? d : null;
-        if (v.isNotEmpty && d.isNotEmpty) {
+        // Risk logic: per-user override from Firestore `users/{uid}.riskLevel` if present.
+        // Fallback to village/district risk via DashboardService.
+        if (uid != null && uid.isNotEmpty) {
+          _riskFuture = _fetchUserRisk(uid).then((userRisk) async {
+            if (userRisk != null && userRisk.trim().isNotEmpty) return userRisk;
+            if (v.isNotEmpty && d.isNotEmpty) {
+              return await _dashboard.fetchRiskLevel(district: d, village: v);
+            }
+            return 'low';
+          });
+        } else if (v.isNotEmpty && d.isNotEmpty) {
           _riskFuture = _dashboard.fetchRiskLevel(district: d, village: v);
+        }
+        if (v.isNotEmpty && d.isNotEmpty) {
           _geoFuture = _dashboard.geocodeVillage(village: v, district: d);
+          _villageStatusFuture = _fetchVillageStatus(d, v);
         }
         if (uid != null && uid.isNotEmpty) {
           _countsFuture = _computeCounts(uid);
@@ -95,7 +159,12 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
 
     int daily = 0, weekly = 0, monthly = 0;
     try {
-      final col = FirebaseFirestore.instance.collection('users').doc(uid).collection('household_surveys');
+      final col = FirebaseFirestore.instance
+          .collection('appdata')
+          .doc('main')
+          .collection('ashwadata')
+          .doc(uid)
+          .collection('household_surveys');
       final snap = await col.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth)).get();
       for (final d in snap.docs) {
         final ts = d.data()['createdAt'];
@@ -114,7 +183,12 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
 
   Future<List<Map<String, dynamic>>> _fetchRecentReportsByUser(String uid, {int limit = 5}) async {
     try {
-      final col = FirebaseFirestore.instance.collection('users').doc(uid).collection('household_surveys');
+      final col = FirebaseFirestore.instance
+          .collection('appdata')
+          .doc('main')
+          .collection('ashwadata')
+          .doc(uid)
+          .collection('household_surveys');
       final snap = await col.orderBy('createdAt', descending: true).limit(limit).get();
       return snap.docs.map((d) {
         final data = d.data();
@@ -134,11 +208,12 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context).t;
     final name = (_name != null && _name!.trim().isNotEmpty)
         ? _name!
         : AppLocalizations.of(context).t('hello_priya').replaceAll('Hello, ', '');
-    final village = _village ?? widget.village ?? AppLocalizations.of(context).t('village_rampur');
-    final district = _district ?? widget.district ?? AppLocalizations.of(context).t('district_jaipur');
+    final village = _village ?? widget.village ?? t('village_rampur');
+    final district = _district ?? widget.district ?? t('district_jaipur');
     final stage = widget.outbreakStage ?? 'Monitoring';
     final risk = (widget.riskLevel ?? 'low').toLowerCase();
 
@@ -148,23 +223,23 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
       case 'high':
       case 'red':
         riskColor = const Color(0xFFEF4444);
-        riskLabel = 'High Risk';
+        riskLabel = t('risk_high');
         break;
       case 'medium':
       case 'yellow':
         riskColor = const Color(0xFFF59E0B);
-        riskLabel = 'Medium Risk';
+        riskLabel = t('risk_medium');
         break;
       default:
         riskColor = const Color(0xFF22C55E);
-        riskLabel = 'Low Risk';
+        riskLabel = t('risk_low');
     }
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
         centerTitle: true,
         title: Text(
-          AppLocalizations.of(context).t('nav_home_title'),
+          t('nav_home_title'),
           style: const TextStyle(
             fontWeight: FontWeight.w600,
           ),
@@ -184,10 +259,10 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
               }
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'ne', child: Text('Nepali')),
+              PopupMenuItem(value: 'ne', child: Text('नेपाली')),
               PopupMenuItem(value: 'en', child: Text('English')),
-              PopupMenuItem(value: 'as', child: Text('Assamese')),
-              PopupMenuItem(value: 'hi', child: Text('Hindi')),
+              PopupMenuItem(value: 'as', child: Text('অসমীয়া')),
+              PopupMenuItem(value: 'hi', child: Text('हिन्दी')),
             ],
           ),
           IconButton(
@@ -226,15 +301,15 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Hello, $name',
+                  Text('${t('hello')}, $name',
                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _InfoChip(icon: Icons.location_city, label: 'Village: $village'),
-                      _InfoChip(icon: Icons.map, label: 'District: $district'),
+                      _InfoChip(icon: Icons.location_city, label: '${t('village_label')}: $village'),
+                      _InfoChip(icon: Icons.map, label: '${t('district_label')}: $district'),
                       _InfoChip(icon: Icons.coronavirus_outlined, label: 'Outbreak: $stage'),
                     ],
                   ),
@@ -253,11 +328,11 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
                 final monthly = snapshot.data?.monthly ?? 0;
                 return Row(
                   children: [
-                    Expanded(child: _StatCard(title: 'Daily Cases', value: daily.toString(), color: const Color(0xFF0EA5E9))),
+                    Expanded(child: _StatCard(title: t('daily_cases'), value: daily.toString(), color: const Color(0xFF0EA5E9))),
                     const SizedBox(width: 12),
-                    Expanded(child: _StatCard(title: 'Weekly Cases', value: weekly.toString(), color: const Color(0xFFF59E0B))),
+                    Expanded(child: _StatCard(title: t('weekly_cases'), value: weekly.toString(), color: const Color(0xFFF59E0B))),
                     const SizedBox(width: 12),
-                    Expanded(child: _StatCard(title: 'Monthly Cases', value: monthly.toString(), color: const Color(0xFF22C55E))),
+                    Expanded(child: _StatCard(title: t('monthly_cases'), value: monthly.toString(), color: const Color(0xFF22C55E))),
                   ],
                 );
               },
@@ -300,7 +375,7 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
                       Icon(Icons.shield_outlined, color: rc),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text('$rl for $village',
+                        child: Text('$rl ${t('for')} $village',
                             style: TextStyle(color: rc, fontSize: 16, fontWeight: FontWeight.w700)),
                       ),
                     ],
@@ -313,7 +388,7 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
 
             // Geo Risk Map header
             Text(
-              AppLocalizations.of(context).t('geo_risk_map'),
+              t('geo_risk_map'),
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -321,7 +396,7 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
             ),
             const SizedBox(height: 12),
 
-            // Interactive map using flutter_map
+            // Interactive map using flutter_map with risk-colored marker
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: AspectRatio(
@@ -345,32 +420,114 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
                       );
                     }
                     final pos = LatLng(snap.data!.lat, snap.data!.lon);
-                    return FlutterMap(
-                      options: MapOptions(initialCenter: pos, initialZoom: 13),
-                      children: [
-                        TileLayer(
-                          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          subdomains: const ['a', 'b', 'c'],
-                          userAgentPackageName: 'app',
-                        ),
-                        MarkerLayer(markers: [
-                          Marker(point: pos, width: 40, height: 40, child: const Icon(Icons.location_on, color: Colors.redAccent, size: 36)),
-                        ]),
-                      ],
+                    return FutureBuilder<({String risk, Map<String, dynamic>? latest, Map<String, dynamic>? daily, List<dynamic>? reasons})>(
+                      future: _villageStatusFuture,
+                      builder: (context, vs) {
+                        String r = (vs.data?.risk ?? (risk.isNotEmpty ? risk : 'low')).toLowerCase();
+                        Color rc;
+                        switch (r) {
+                          case 'high':
+                          case 'red':
+                            rc = const Color(0xFFEF4444);
+                            break;
+                          case 'medium':
+                          case 'yellow':
+                            rc = const Color(0xFFF59E0B);
+                            break;
+                          default:
+                            rc = const Color(0xFF22C55E);
+                        }
+
+                        return FlutterMap(
+                          options: MapOptions(initialCenter: pos, initialZoom: 13),
+                          children: [
+                            TileLayer(
+                              urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              subdomains: const ['a', 'b', 'c'],
+                              userAgentPackageName: 'app',
+                            ),
+                            MarkerLayer(markers: [
+                              Marker(
+                                point: pos,
+                                width: 60,
+                                height: 60,
+                                child: GestureDetector(
+                                  onTap: () => _showRiskDetailsSheet(context, village ?? '-', r, vs.data?.latest, vs.data?.daily, vs.data?.reasons),
+                                  child: _RiskMarker(color: rc, animation: _pulseCtrl),
+                                ),
+                              ),
+                            ]),
+                          ],
+                        );
+                      },
                     );
                   },
                 ),
               ),
             ),
 
+            const SizedBox(height: 12),
+            // Latest water metrics card from Firestore (optional if available)
+            FutureBuilder<({String risk, Map<String, dynamic>? latest, Map<String, dynamic>? daily, List<dynamic>? reasons})>(
+              future: _villageStatusFuture,
+              builder: (context, vs) {
+                if (!vs.hasData || vs.data?.latest == null) return const SizedBox.shrink();
+                final latest = vs.data!.latest!;
+                final ph = latest['ph'];
+                final turb = latest['turbidity'];
+                final ecoli = latest['ecoli'] == true;
+                final cases = latest['daily_cases'] ?? 0;
+                final daily = vs.data!.daily;
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 2))],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _InfoChip(icon: Icons.science, label: 'pH: ${ph ?? '-'}'),
+                          _InfoChip(icon: Icons.opacity, label: 'NTU: ${turb ?? '-'}'),
+                          _InfoChip(icon: Icons.bloodtype, label: 'E. coli: ${ecoli ? 'Yes' : 'No'}'),
+                          _InfoChip(icon: Icons.local_hospital, label: 'Cases: $cases'),
+                        ],
+                      ),
+                      if (daily != null) ...[
+                        const SizedBox(height: 8),
+                        Wrap(spacing: 8, runSpacing: 8, children: [
+                          _metricChip(Icons.grain, 'Daily Rain', '${daily['rainfall_total_mm'] ?? 0} mm'),
+                          _metricChip(Icons.timeline, 'Avg pH', '${daily['avg_ph'] ?? '-'}'),
+                          _metricChip(Icons.stacked_line_chart, 'Avg NTU', '${daily['avg_turbidity'] ?? '-'}'),
+                          _metricChip(Icons.check_circle, 'E. coli (daily)', (daily['ecoli_present'] == true) ? 'Present' : 'Absent'),
+                        ]),
+                      ]
+                    ],
+                  ),
+                );
+              },
+            ),
+
             const SizedBox(height: 8),
-            Center(
-              child: Text(
-                riskLabel,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: riskColor,
-                  fontWeight: FontWeight.w600,
+            GestureDetector(
+              onTap: () async {
+                final vs = await _villageStatusFuture;
+                _showRiskDetailsSheet(context, village ?? '-', vs?.risk ?? 'green', vs?.latest, vs?.daily, vs?.reasons);
+              },
+              child: Center(
+                child: Text(
+                  riskLabel,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: riskColor,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ),
             ),
@@ -379,7 +536,7 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
 
             // Recent Reports header
             Text(
-              AppLocalizations.of(context).t('recent_reports'),
+              t('recent_reports'),
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -393,7 +550,7 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
               builder: (context, snap) {
                 final items = snap.data ?? const [];
                 if (items.isEmpty) {
-                  return Text('No recent reports', style: TextStyle(color: Colors.grey.shade600));
+                  return Text(t('no_recent_reports'), style: TextStyle(color: Colors.grey.shade600));
                 }
                 return Column(
                   children: [
@@ -454,15 +611,193 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> {
           selectedItemColor: cs.primary,
           unselectedItemColor: const Color(0xFF9CA3AF),
           showUnselectedLabels: true,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: 'Data Collection'),
-            BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Reports'),
-            BottomNavigationBarItem(icon: Icon(Icons.insert_chart_outlined), label: 'Analytics'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Profile'),
+          items: [
+            BottomNavigationBarItem(icon: const Icon(Icons.home_rounded), label: t('nav_home_title')),
+            BottomNavigationBarItem(icon: const Icon(Icons.fact_check_outlined), label: t('nav_data_collection')),
+            BottomNavigationBarItem(icon: const Icon(Icons.receipt_long_outlined), label: t('nav_reports')),
+            BottomNavigationBarItem(icon: const Icon(Icons.insert_chart_outlined), label: t('nav_analytics')),
+            BottomNavigationBarItem(icon: const Icon(Icons.person_outline_rounded), label: t('nav_profile')),
           ],
         ),
       ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  Color _riskColorFrom(String r) {
+    switch (r.toLowerCase()) {
+      case 'high':
+      case 'red':
+        return const Color(0xFFEF4444);
+      case 'medium':
+      case 'yellow':
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0xFF22C55E);
+    }
+  }
+
+  String _riskLabelFrom(String r) {
+    switch (r.toLowerCase()) {
+      case 'high':
+      case 'red':
+        return 'High Risk';
+      case 'medium':
+      case 'yellow':
+        return 'Medium Risk';
+      default:
+        return 'Low Risk';
+    }
+  }
+
+  Widget _metricChip(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFF64748B)),
+          const SizedBox(width: 8),
+          Text('$label: ', style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+
+  void _showRiskDetailsSheet(
+    BuildContext context,
+    String village,
+    String risk,
+    Map<String, dynamic>? latest,
+    Map<String, dynamic>? daily,
+    List<dynamic>? reasons,
+  ) {
+    final rc = _riskColorFrom(risk);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: false,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: rc.withOpacity(0.12),
+                      border: Border.all(color: rc),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.shield, color: rc, size: 16),
+                      const SizedBox(width: 6),
+                      Text(_riskLabelFrom(risk), style: TextStyle(color: rc, fontWeight: FontWeight.w800)),
+                    ]),
+                  ),
+                  const Spacer(),
+                  IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded))
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text('${AppLocalizations.of(context).t('geo_risk_map')}: $village', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 14),
+              if (latest != null) Wrap(
+                spacing: 8, runSpacing: 8,
+                children: [
+                  _metricChip(Icons.science, 'pH', (latest['ph'] ?? '-').toString()),
+                  _metricChip(Icons.opacity, 'NTU', (latest['turbidity'] ?? '-').toString()),
+                  _metricChip(Icons.bloodtype, 'E. coli', (latest['ecoli'] == true) ? 'Present' : 'Absent'),
+                  _metricChip(Icons.local_hospital, 'Cases', (latest['daily_cases'] ?? 0).toString()),
+                ],
+              ) else Text(AppLocalizations.of(context).t('no_data')),
+              if (daily != null) ...[
+                const SizedBox(height: 14),
+                const Text('Today\'s Aggregates', style: TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  _metricChip(Icons.grain, 'Rain (mm)', '${daily['rainfall_total_mm'] ?? 0}'),
+                  _metricChip(Icons.timeline, 'Avg pH', '${daily['avg_ph'] ?? '-'}'),
+                  _metricChip(Icons.stacked_line_chart, 'Avg NTU', '${daily['avg_turbidity'] ?? '-'}'),
+                  _metricChip(Icons.verified, 'E. coli (daily)', (daily['ecoli_present'] == true) ? 'Present' : 'Absent'),
+                ]),
+              ],
+              if (reasons != null && reasons.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Text('Contributing factors', style: TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: reasons.map((r) => _metricChip(Icons.info_outline, 'Reason', r.toString())).toList().cast<Widget>(),
+                ),
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+}
+
+class _RiskMarker extends StatelessWidget {
+  final Color color;
+  final Animation<double> animation;
+  const _RiskMarker({required this.color, required this.animation});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        final t = animation.value; // 0..1
+        final outerSize = 46 + 14 * t;
+        final opacity = (1.0 - t).clamp(0.0, 1.0);
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // Pulsing ring
+            Container(
+              width: outerSize,
+              height: outerSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withOpacity(0.10 * opacity),
+                border: Border.all(color: color.withOpacity(0.5 * opacity), width: 2),
+              ),
+            ),
+            // Core glow
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(colors: [color.withOpacity(0.35), color.withOpacity(0.15)], radius: 0.85),
+                border: Border.all(color: color, width: 2),
+              ),
+            ),
+            // Pin icon
+            Icon(Icons.location_on, color: color, size: 26),
+          ],
+        );
+      },
     );
   }
 }

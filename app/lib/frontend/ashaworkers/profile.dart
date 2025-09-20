@@ -35,7 +35,12 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
     setState(() { _uid = uid; });
     if (uid != null && uid.isNotEmpty) {
       try {
-        final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        final doc = await FirebaseFirestore.instance
+            .collection('appdata')
+            .doc('main')
+            .collection('users')
+            .doc(uid)
+            .get();
         setState(() {
           _user = doc.data() ?? {};
           _loading = false;
@@ -296,7 +301,7 @@ class _AshaWorkerProfilePageState extends State<AshaWorkerProfilePage> {
             BottomNavigationBarItem(icon: const Icon(Icons.home_rounded), label: t('nav_home_title')),
             BottomNavigationBarItem(icon: const Icon(Icons.fact_check_outlined), label: t('nav_data_collection')),
             BottomNavigationBarItem(icon: const Icon(Icons.receipt_long_outlined), label: t('nav_reports')),
-            const BottomNavigationBarItem(icon: Icon(Icons.insert_chart_outlined), label: 'Analytics'),
+            BottomNavigationBarItem(icon: const Icon(Icons.insert_chart_outlined), label: t('nav_analytics')),
             BottomNavigationBarItem(icon: const Icon(Icons.person_outline_rounded), label: t('nav_profile')),
           ],
         ),

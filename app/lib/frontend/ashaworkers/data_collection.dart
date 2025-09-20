@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:app/locale/locale_controller.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/frontend/ashaworkers/home.dart';
@@ -67,6 +69,19 @@ extension on _AshaWorkerDataCollectionPageState {
       final int totalMembers = members.length;
       final int affectedMembers = members.where((m) => (m['affected'] == true)).length;
 
+      // Validate water quality inputs
+      final ph = double.tryParse(_waterPh.text.trim());
+      if (ph == null || ph < 0 || ph > 14) {
+        throw Exception('Water pH must be between 0 and 14');
+      }
+      final turb = double.tryParse(_turbidity.text.trim());
+      if (turb == null || turb < 0 || turb > 100) {
+        throw Exception('Turbidity (NTU) must be between 0 and 100');
+      }
+      if (_ecoliPresent == null) {
+        throw Exception('Please select E. coli presence');
+      }
+
       final data = {
         'asha': {
           'uid': ashaUid,
@@ -88,6 +103,10 @@ extension on _AshaWorkerDataCollectionPageState {
           'waterSource': _waterSource,
           'visitedHospital': _visitedHospital,
           'notes': _notes.text.trim(),
+          // Water quality
+          'waterPH': ph,
+          'turbidityNTU': turb,
+          'ecoliPresent': _ecoliPresent,
         },
         'image': {
           'imageUrl': _imageUrl,
@@ -101,8 +120,12 @@ extension on _AshaWorkerDataCollectionPageState {
       };
 
       // Create a global dedupe key across all users
+      // IMPORTANT: Do not use raw user input as document ID since it may contain '/'
+      // (e.g., door numbers like "43/1"), which would create nested paths and cause
+      // "Invalid document reference" errors. Use a hash as the document ID instead.
       final dedupeKey = '${_district.text.trim().toLowerCase()}|${_village.text.trim().toLowerCase()}|${_doorNo.text.trim().toLowerCase()}|${_headName.text.trim().toLowerCase()}';
-      final indexRef = FirebaseFirestore.instance.collection('household_surveys_index').doc(dedupeKey);
+      final dedupeId = sha1.convert(utf8.encode(dedupeKey)).toString();
+      final indexRef = FirebaseFirestore.instance.collection('household_surveys_index').doc(dedupeId);
       final indexSnap = await indexRef.get();
       if (indexSnap.exists) {
         if (!mounted) return;
@@ -112,13 +135,19 @@ extension on _AshaWorkerDataCollectionPageState {
 
       // Store under per-user subcollection when UID is available
       final CollectionReference<Map<String, dynamic>> targetCol = (ashaUid != null && ashaUid.isNotEmpty)
-          ? FirebaseFirestore.instance.collection('users').doc(ashaUid).collection('household_surveys')
+          ? FirebaseFirestore.instance
+              .collection('appdata')
+              .doc('main')
+              .collection('ashwadata')
+              .doc(ashaUid)
+              .collection('household_surveys')
           : FirebaseFirestore.instance.collection('household_surveys');
 
       final docRef = await targetCol.add(data);
 
       // Write index for global duplicate detection
       await indexRef.set({
+        'dedupeKey': dedupeKey,
         'ownerUid': ashaUid,
         'refPath': docRef.path,
         'createdAt': FieldValue.serverTimestamp(),
@@ -138,6 +167,9 @@ extension on _AshaWorkerDataCollectionPageState {
         _notes.clear();
         _waterSource = null;
         _visitedHospital = false;
+        _waterPh.clear();
+        _turbidity.clear();
+        _ecoliPresent = null;
         _imageUrl = null;
         _imageBytes = null;
         _members.clear();
@@ -172,6 +204,11 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
 
   // Family members (initially empty)
   final List<_Member> _members = [];
+
+  // Water quality fields
+  final _waterPh = TextEditingController();
+  final _turbidity = TextEditingController();
+  bool? _ecoliPresent; // null = not specified, true/false per dropdown
 
   Future<void> _promptImageUrl() async {
     final controller = TextEditingController(text: _imageUrl ?? '');
@@ -239,7 +276,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Attach Image', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                Text(t('dc_attach_image'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -258,7 +295,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                           }
                         },
                         icon: const Icon(Icons.photo_camera_outlined),
-                        label: const Text('Camera'),
+                        label: Text(t('camera')),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -277,7 +314,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                           }
                         },
                         icon: const Icon(Icons.photo_library_outlined),
-                        label: const Text('Gallery'),
+                        label: Text(t('gallery')),
                       ),
                     ),
                   ],
@@ -303,6 +340,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
   }
 
   Future<void> _showAddMemberSheet() async {
+    final t = AppLocalizations.of(context).t;
     final name = TextEditingController();
     final age = TextEditingController();
     final phone = TextEditingController();
@@ -339,23 +377,23 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Add Member', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    Text(t('add_member_title'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 12),
-                    TextField(controller: name, decoration: _decoration('Name')),
+                    TextField(controller: name, decoration: _decoration(t('name'))),
                     const SizedBox(height: 10),
                     Row(children: [
                       Expanded(
                         child: TextField(
                           controller: age,
                           keyboardType: TextInputType.number,
-                          decoration: _decoration('Age'),
+                          decoration: _decoration(t('age')),
                           onChanged: handleAgeChanged,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: InputDecorator(
-                          decoration: _decoration('Gender'),
+                          decoration: _decoration(t('gender')),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               value: gender,
@@ -381,8 +419,8 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                       controller: phone,
                       keyboardType: TextInputType.phone,
                       enabled: !isMinor(),
-                      decoration: _decoration('Phone Number').copyWith(
-                        helperText: isMinor() ? 'Auto-filled from household head for minors (<18)' : null,
+                      decoration: _decoration(t('phone_number')).copyWith(
+                        helperText: isMinor() ? t('auto_filled_minor_helper') : null,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -390,7 +428,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Disease affected?'),
+                        Text(t('disease_affected_q')),
                         Switch(
                           value: affected,
                           onChanged: (v) {
@@ -401,11 +439,11 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                     ),
                     if (affected) ...[
                       InputDecorator(
-                        decoration: _decoration('Disease'),
+                        decoration: _decoration(t('disease')),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: disease,
-                            hint: const Text('Select disease'),
+                            hint: Text(t('select_disease')),
                             isExpanded: true,
                             items: const [
                               DropdownMenuItem(value: 'Cholera', child: Text('Cholera')),
@@ -422,19 +460,19 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                       ),
                       const SizedBox(height: 10),
                     ],
-                    TextField(controller: symptoms, decoration: _decoration('Symptoms (comma separated)')),
+                    TextField(controller: symptoms, decoration: _decoration(t('symptoms_hint'))),
                     const SizedBox(height: 10),
-                    TextField(controller: notes, maxLines: 3, decoration: _decoration('Notes')),
+                    TextField(controller: notes, maxLines: 3, decoration: _decoration(t('dc_notes'))),
                     const SizedBox(height: 14),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(t('cancel'))),
                         const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: () {
                             if (name.text.trim().isEmpty || age.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter Name and Age')));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('enter_name_age'))));
                               return;
                             }
                             final isUnder18 = int.tryParse(age.text.trim()) != null && int.parse(age.text.trim()) < 18;
@@ -453,7 +491,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                             });
                             Navigator.pop(ctx);
                           },
-                          child: const Text('Add'),
+                          child: Text(t('add')),
                         ),
                       ],
                     )
@@ -476,6 +514,8 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
     _village.dispose();
     _district.dispose();
     _notes.dispose();
+    _waterPh.dispose();
+    _turbidity.dispose();
     super.dispose();
   }
 
@@ -565,7 +605,7 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                   BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 6)),
                 ],
               ),
-              child: const Text('No family members added yet.'),
+              child: Text(t('no_family_members')),
             )
           else ...[
             ..._members.asMap().entries.map((e) => _FamilyMemberTile(index: e.key + 1, title: e.value.name, summary: e.value.summary)),
@@ -600,6 +640,52 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                   DropdownMenuItem(value: 'River/Pond', child: Text(t('dc_source_river_pond'))),
                 ],
                 onChanged: (v) => setState(() => _waterSource = v),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+          // Water quality metrics: pH, Turbidity, E. coli presence
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _waterPh,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9\.]')),
+                  ],
+                  decoration: _decoration(t('water_ph_label')).copyWith(hintText: 'e.g., 7.0'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _turbidity,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9\.]')),
+                  ],
+                  decoration: _decoration(t('turbidity_label')).copyWith(hintText: 'e.g., 1.5'),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+          InputDecorator(
+            decoration: _decoration(t('ecoli_presence')),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<bool?>(
+                value: _ecoliPresent,
+                isExpanded: true,
+                hint: Text(t('select')),
+                items: [
+                  DropdownMenuItem<bool?>(value: null, child: Text(t('not_specified'))),
+                  DropdownMenuItem<bool?>(value: true, child: Text(t('present'))),
+                  DropdownMenuItem<bool?>(value: false, child: Text(t('absent'))),
+                ],
+                onChanged: (v) => setState(() => _ecoliPresent = v),
               ),
             ),
           ),
@@ -657,13 +743,13 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
                           ElevatedButton.icon(
                             onPressed: _showAttachImageSheet,
                             icon: const Icon(Icons.add_a_photo_outlined),
-                            label: const Text('Attach'),
+                            label: Text(t('attach')),
                           ),
                           const SizedBox(height: 8),
                           OutlinedButton.icon(
                             onPressed: () {
                               // Placeholder upload action
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image uploaded')));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('image_uploaded'))));
                             },
                             icon: const Icon(Icons.cloud_upload_outlined),
                             label: Text(t('dc_upload')),
