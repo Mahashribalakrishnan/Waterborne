@@ -210,6 +210,31 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
   final _turbidity = TextEditingController();
   bool? _ecoliPresent; // null = not specified, true/false per dropdown
 
+  bool _prefLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAshaDefaults();
+  }
+
+  Future<void> _loadAshaDefaults() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ashaVillage = (prefs.getString('asha_village') ?? '').trim();
+      final ashaDistrict = (prefs.getString('asha_district') ?? '').trim();
+      if (mounted) {
+        setState(() {
+          if (ashaVillage.isNotEmpty) _village.text = ashaVillage;
+          if (ashaDistrict.isNotEmpty) _district.text = ashaDistrict;
+          _prefLoaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _prefLoaded = true);
+    }
+  }
+
   Future<void> _promptImageUrl() async {
     final controller = TextEditingController(text: _imageUrl ?? '');
     final result = await showModalBottomSheet<String>(
@@ -586,8 +611,37 @@ class _AshaWorkerDataCollectionPageState extends State<AshaWorkerDataCollectionP
           _TextField(label: t('dc_head_name'), hint: t('dc_enter_name'), controller: _headName),
           _TextField(label: t('dc_phone_number'), hint: t('dc_enter_phone_number'), controller: _phone, keyboardType: TextInputType.phone),
           _TextField(label: t('dc_address'), hint: t('dc_enter_address'), controller: _address),
-          _TextField(label: t('dc_village'), hint: t('dc_enter_village'), controller: _village),
-          _TextField(label: t('dc_district'), hint: t('dc_enter_district'), controller: _district),
+          // Village & District auto-filled from ASHA profile; keep read-only to avoid mismatch
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t('dc_village'), style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _village,
+                  readOnly: true,
+                  decoration: _decoration(t('dc_enter_village')).copyWith(suffixIcon: const Icon(Icons.lock_outline, size: 18)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t('dc_district'), style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _district,
+                  readOnly: true,
+                  decoration: _decoration(t('dc_enter_district')).copyWith(suffixIcon: const Icon(Icons.lock_outline, size: 18)),
+                ),
+              ],
+            ),
+          ),
 
           const SizedBox(height: 12),
 

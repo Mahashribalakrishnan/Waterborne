@@ -56,6 +56,67 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> with SingleTick
     _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
   }
 
+  Future<({int daily, int weekly, int monthly})> _fetchVillageCasesCounts(String district, String village) async {
+    try {
+      // resolve villageId
+      final vcol = FirebaseFirestore.instance.collection('appdata').doc('main').collection('villages');
+      final q = await vcol.where('name', isEqualTo: village).where('district', isEqualTo: district).limit(1).get();
+      if (q.docs.isEmpty) return (daily: 0, weekly: 0, monthly: 0);
+      final vid = q.docs.first.id;
+
+      final now = DateTime.now();
+      String ymd(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      Future<int> sumRange(int days) async {
+        int total = 0;
+        for (int i = 0; i < days; i++) {
+          final d = now.subtract(Duration(days: i));
+          final doc = await FirebaseFirestore.instance
+              .collection('appdata').doc('main')
+              .collection('ashaworkers_daily_cases').doc(ymd(d))
+              .collection('villages').doc(vid).get();
+          if (doc.exists) total += int.tryParse((doc.data()?['count'] ?? 0).toString()) ?? 0;
+        }
+        return total;
+      }
+
+      final daily = await sumRange(1);
+      final weekly = await sumRange(7);
+      final monthly = await sumRange(30);
+      return (daily: daily, weekly: weekly, monthly: monthly);
+    } catch (_) {
+      return (daily: 0, weekly: 0, monthly: 0);
+    }
+  }
+
+  Future<({int today, int week, int month})> _fetchAshaCollectedCounts(String uid) async {
+    try {
+      final col = FirebaseFirestore.instance
+          .collection('appdata')
+          .doc('main')
+          .collection('ashwadata');
+      // fetch recent entries for this worker
+      final snap = await col.where('workerId', isEqualTo: uid).limit(500).get();
+      final now = DateTime.now();
+      final todayStr = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final weekStart = now.subtract(const Duration(days: 6));
+      final monthStart = now.subtract(const Duration(days: 29));
+      bool inRange(DateTime d, DateTime start) => !d.isBefore(DateTime(start.year, start.month, start.day));
+      int t = 0, w = 0, m = 0;
+      for (final d in snap.docs) {
+        final data = d.data();
+        final ds = (data['date'] ?? todayStr).toString();
+        DateTime dt;
+        try { dt = DateTime.parse(ds); } catch (_) { continue; }
+        if (ds == todayStr) t++;
+        if (inRange(dt, weekStart)) w++;
+        if (inRange(dt, monthStart)) m++;
+      }
+      return (today: t, week: w, month: m);
+    } catch (_) {
+      return (today: 0, week: 0, month: 0);
+    }
+  }
+
   Future<({String risk, Map<String, dynamic>? latest, Map<String, dynamic>? daily, List<dynamic>? reasons})> _fetchVillageStatus(String district, String village) async {
     try {
       final col = FirebaseFirestore.instance
@@ -288,6 +349,61 @@ class _AshaWorkerHomePageState extends State<AshaWorkerHomePage> with SingleTick
           children: [
             // Header Card
             const SizedBox(height: 8),
+            if (_uid != null) FutureBuilder<({int today, int week, int month})>(
+              future: _fetchAshaCollectedCounts(_uid!),
+              builder: (context, asnap) {
+                if (!asnap.hasData) return const SizedBox.shrink();
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 2))],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Your data collected', style: TextStyle(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _InfoChip(icon: Icons.today, label: 'Today: ${asnap.data!.today}'),
+                          _InfoChip(icon: Icons.view_week, label: 'Week: ${asnap.data!.week}'),
+                          _InfoChip(icon: Icons.calendar_view_month, label: 'Month: ${asnap.data!.month}'),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 8),
+            if ((_district != null) && (_village != null)) FutureBuilder<({int daily, int weekly, int monthly})>(
+              future: _fetchVillageCasesCounts(_district!, _village!),
+              builder: (context, csnap) {
+                if (!csnap.hasData) return const SizedBox.shrink();
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 2))],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _InfoChip(icon: Icons.local_hospital, label: 'Daily: ${csnap.data!.daily}'),
+                      _InfoChip(icon: Icons.view_week, label: 'Weekly: ${csnap.data!.weekly}'),
+                      _InfoChip(icon: Icons.calendar_view_month, label: 'Monthly: ${csnap.data!.monthly}'),
+                    ],
+                  ),
+                );
+              },
+            ),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
